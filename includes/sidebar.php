@@ -1,6 +1,6 @@
 <?php
 $current_page = basename($_SERVER['PHP_SELF']);
-$role = $_SESSION['role'] ?? 'driver';
+$role = $_SESSION['user_role'] ?? 'driver';
 ?>
 <aside class="sidebar w-72 bg-white shadow-lg fixed h-full overflow-y-auto z-10">
     <div class="p-6 border-b border-gray-200">
@@ -9,8 +9,14 @@ $role = $_SESSION['role'] ?? 'driver';
                 <i class="ri-truck-line text-white text-xl"></i>
             </div>
             <div>
-                <h1 class="text-xl font-bold text-gray-800">FleetManager</h1>
-                <p class="text-xs text-gray-500">Truck Tracking System</p>
+                <?php if($role == 'admin'): ?>
+                    <h1 class="text-xl font-bold text-gray-800"><?php echo "Admin Panel"; ?></h1>
+                    <p class="text-xs text-gray-500">Truck Tracking System</p>
+
+                <?php elseif($role == 'manager'): ?>
+                    <h1 class="text-xl font-bold text-gray-800"><?php echo "FleetManager"; ?></h1>
+                    <p class="text-xs text-gray-500">Truck Tracking System</p>
+                <?php endif ?>
             </div>
         </div>
     </div>
