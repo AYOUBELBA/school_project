@@ -1,7 +1,20 @@
 <?php
-// login_process.php
 
-require_once("connect.php");
+require_once('../config/session.php');
+require_once("database.php");
+
+// Initialize database connection
+$database = new Database();
+$conn = $database->getConnection();
+
+// Check if connection is successful
+if (!$conn) {
+    die("Database connection failed. Please check your configuration.");
+}
+// Only start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Check if form was submitted via POST
 if ($_SERVER['REQUEST_METHOD'] == "POST") {
@@ -12,14 +25,15 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
     
     // Basic validation
     if (empty($email) || empty($password)) {
-        die("Email and password are required");
+        header("Location: ../signup.php?error=empty_fields");
+        exit();
     }
     
     try {
-        // Prepare SQL to get user by email - using prepared statement for security
-        $sql = "SELECT id, email, password_hash, role, last_login 
+        // FIXED: Using 'username' instead of 'name'
+        $sql = "SELECT id, email, password_hash, role, last_login, username 
                 FROM users 
-                WHERE email = :email";
+                WHERE email = :email AND is_active = true";
         
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':email', $email);
@@ -29,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
         if ($stmt->rowCount() == 1) {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // Verify password (assuming passwords are hashed with password_hash())
+            // Verify password
             if (password_verify($password, $user['password_hash'])) {
                 
                 // Update last_login timestamp
@@ -45,28 +59,38 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                 session_start();
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_email'] = $user['email'];
+                $_SESSION['username'] = $user['username']; // Fixed: using username column
                 $_SESSION['user_role'] = $user['role'];
                 $_SESSION['last_login'] = $user['last_login'];
+                $_SESSION['login_time'] = time();
                 
-                // Redirect based on role or to dashboard
-                header("Location: dashboard.php");
+                // Redirect based on role
+                if ($user['role'] == 'driver') {
+                    header("Location: ../driver_dashboard.php");
+                } else {
+                    header("Location: ../pages/dashboard.php");
+                }
                 exit();
                 
             } else {
                 // Wrong password
-                die("Invalid email or password");
+                header("Location: ../signup.php?error=invalid_credentials");
+                exit();
             }
         } else {
             // User not found
-            die("Invalid email or password");
+            header("Location: ../signup.php?error=invalid_credentials");
+            exit();
         }
         
     } catch (PDOException $e) {
-        die("Login error: " . $e->getMessage());
+        error_log("Login error: " . $e->getMessage());
+        header("Location: ../signup.php?error=system_error");
+        exit();
     }
 } else {
     // If someone tries to access this file directly without POST
-    header("Location: login.php");
+    header("Location: ../signup.php");
     exit();
 }
 ?>
