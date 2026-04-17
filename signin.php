@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign Up | Play Tailwind</title>
+    <title>Truck tracking</title>
     <link
       rel="shortcut icon"
       href="assets/images/favicon.png"
@@ -122,7 +122,6 @@
                   <li class="relative submenu-item group">
                     <a
                       href="javascript:void(0)"
-                      style="color: gray;"
                       class="relative flex items-center justify-between py-2 mx-8 text-base font-medium text-primary group-hover:text-primary lg:mr-0 lg:ml-8 lg:inline-flex lg:py-6 lg:pl-0 lg:pr-4 xl:ml-10"
                     >
                       Pages
@@ -175,13 +174,13 @@
                       </a>
 
                       <a
-                        href="signup.html"
+                        href="signup.php"
                         class="block rounded-sm py-[10px] px-4 text-sm text-body-color dark:text-dark-6 hover:text-primary dark:hover:text-primary"
                       >
                         Sign Up Page
                       </a>
                       <a
-                        href="signin.html"
+                        href="signup.php"
                         class="block rounded-sm py-[10px] px-4 text-sm text-primary hover:text-primary dark:hover:text-primary"
                       >
                         Sign In Page
@@ -210,7 +209,7 @@
                   id="themeSwitcher"
                   class="sr-only"
                 />
-                <span class="block text-dark dark:hidden dark:text-white">
+                <span class="block text-dark ">
                   <svg
                     class="fill-current"
                     width="24"
@@ -224,7 +223,7 @@
                     />
                   </svg>
                 </span>
-                <span class="hidden text-dark">
+                <span class="hidden text-dark dark:block dark:text-white">
                   <svg
                     class="fill-current"
                     width="24"
@@ -272,13 +271,13 @@
               </label>
               <div class="hidden sm:flex">
                 <a
-                  href="signin.html"
-                  class="loginBtn py-2 px-[22px] text-base font-medium   hover:opacity-70"
+                  href="signup.php"
+                  class="loginBtn py-2 px-[22px] text-base font-medium text-black hover:opacity-70"
                 >
                   Sign In
                 </a>
                 <a
-                  href="signup.html"
+                  href="signup.php"
                   class="px-6 py-2 text-base font-medium text-white duration-300 ease-in-out rounded-md signUpBtn bg-primary hover:bg-blue-dark"
                 >
                   Sign Up
@@ -290,17 +289,20 @@
       </div>
     </div>
     <!-- ====== Navbar Section End -->
-     <div style="width: 100%; height: 90px; background-color: white;">
 
-     </div>
+    <!-- ====== Banner Section Start -->
+    <div style="height: 90px;" style="background-color: white;">
+
+    </div>
+    <!-- ====== Banner Section End -->
 
     <!-- ====== Forms Section Start -->
-    <section class="bg-[#F4F7FF] py-14 lg:py-[90px] dark:bg-dark" ">
+    <section class="bg-[#F4F7FF] py-14 lg:py-20 dark:bg-dark">
       <div class="container mx-auto px-4">
         <div class="flex flex-wrap -mx-4">
           <div class="w-full px-4">
             <div
-              class="wow fadeInUp relative mx-auto max-w-[525px] overflow-hidden rounded-xl shadow-form bg-white dark:bg-dark-2 py-14 px-8 text-center sm:px-12 md:px-[60px]"
+              class="wow fadeInUp relative mx-auto max-w-[525px] overflow-hidden rounded-lg bg-white dark:bg-dark-2 py-14 px-8 text-center sm:px-12 md:px-[60px]"
               data-wow-delay=".15s"
             >
               <div class="mb-10 text-center">
@@ -320,39 +322,52 @@
                   />
                 </a>
               </div>
-              <form action="config/pass_hash.php" method="post">
-                <div class="mb-[22px]">
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    name="name"
-                    class="w-full px-5 py-3 text-base transition bg-transparent border rounded-md outline-hidden border-stroke dark:border-dark-3 text-body-color dark:text-dark-6 placeholder:text-dark-6 focus:border-primary dark:focus:border-primary focus-visible:shadow-none"
-                  />
-                </div>
-                <div class="mb-[22px]">
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    name="em"
-                    class="w-full px-5 py-3 text-base transition bg-transparent border rounded-md outline-hidden border-stroke dark:border-dark-3 text-body-color dark:text-dark-6 placeholder:text-dark-6 focus:border-primary dark:focus:border-primary focus-visible:shadow-none"
-                  />
-                </div>
-                <div class="mb-[22px]">
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    name="pass"
-                    class="w-full px-5 py-3 text-base transition bg-transparent border rounded-md outline-hidden border-stroke dark:border-dark-3 text-body-color dark:text-dark-6 placeholder:text-dark-6 focus:border-primary dark:focus:border-primary focus-visible:shadow-none"
-                  />
-                </div>
-                <div class="mb-9">
-                  <input
-                    type="submit"
-                    value="Sign Up"
-                    class="w-full px-5 py-3 text-base text-white transition duration-300 ease-in-out border rounded-md cursor-pointer border-primary bg-primary hover:bg-blue-dark"
-                  />
-                </div>
+              <!-- Change your form action in signup.php -->
+              <form action="config/login_procces.php" method="post">
+                  <div class="mb-[22px]">
+                      <input type="email" placeholder="Email" name="em" required
+                          class="w-full px-5 py-3 text-base transition bg-transparent border rounded-md outline-hidden border-stroke dark:border-dark-3 text-body-color dark:text-dark-6 placeholder:text-dark-6 focus:border-primary dark:focus:border-primary focus-visible:shadow-none"
+                      />
+                  </div>
+                  <div class="mb-[22px]">
+                      <input type="password" name="pass" placeholder="Password" required
+                          class="w-full px-5 py-3 text-base transition bg-transparent border rounded-md outline-hidden border-stroke dark:border-dark-3 text-body-color dark:text-dark-6 placeholder:text-dark-6 focus:border-primary dark:focus:border-primary focus-visible:shadow-none"
+                      />
+                  </div>
+                  
+                  <!-- Add error display -->
+                  <?php if(isset($_GET['error'])): ?>
+                  <div class="mb-4 p-3 rounded bg-red-100 border border-red-400 text-red-700 text-sm">
+                      <?php 
+                      $error = $_GET['error'];
+                      switch($error) {
+                          case 'empty_fields':
+                              echo 'Please fill in all fields';
+                              break;
+                          case 'invalid_credentials':
+                              echo 'Invalid email or password';
+                              break;
+                          case 'system_error':
+                              echo 'System error. Please try again later';
+                              break;
+                          default:
+                              echo 'Login failed. Please try again';
+                      }
+                      ?>
+                  </div>
+                  <?php endif; ?>
+                  
+                  <div class="mb-9">
+                      <input type="submit" value="Sign In"
+                          class="w-full px-5 py-3 text-base text-white transition duration-300 ease-in-out border rounded-md cursor-pointer border-primary bg-primary hover:bg-blue-dark"
+                      />
+                  </div>
               </form>
+
+
+
+
+
               <span class="relative block text-center z-1 mb-7">
                 <span
                   class="absolute left-0 block w-full h-px -z-1 top-1/2 bg-stroke dark:bg-dark-3"
@@ -404,7 +419,7 @@
                 <li class="w-full px-2">
                   <a
                     href="javascript:void(0)"
-                    class="flex h-11 items-center justify-center rounded-md bg-[#D64937] transition hover:bg-[#D64937]/90"
+                    class="flex h-11 items-center justify-center rounded-md bg-[#D64937] transition hover:bg-[#1C9CEA]/90"
                   >
                     <svg
                       width="18"
@@ -421,28 +436,16 @@
                   </a>
                 </li>
               </ul>
-
-              <p class="mb-4 text-base text-body-secondary">
-                By creating an account you are agree with our
-                <a
-                  href="javascript:void(0)"
-                  class="text-primary hover:underline"
-                >
-                  Privacy
-                </a>
-                and
-                <a
-                  href="javascript:void(0)"
-                  class="text-primary hover:underline"
-                >
-                  Policy
-                </a>
-              </p>
-
+              <a
+                href="javascript:void(0)"
+                class="inline-block mb-2 text-base text-dark dark:text-white hover:text-primary dark:hover:text-primary"
+              >
+                Forget Password?
+              </a>
               <p class="text-base text-body-secondary">
-                Already have an account?
-                <a href="signin.html" class="text-primary hover:underline">
-                  Sign In
+                Not a member yet?
+                <a href="signup.php" class="text-primary hover:underline">
+                  Sign Up
                 </a>
               </p>
 
@@ -897,8 +900,6 @@
       ></span>
     </a>
     <!-- ====== Back To Top End -->
-
-
     <!-- ====== All Scripts -->
     <script src="assets/js/main.js"></script>
   </body>

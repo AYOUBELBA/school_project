@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 class Auth {
     private $conn;
@@ -57,7 +59,7 @@ class Auth {
     
     public function requireLogin() {
         if(!$this->isLoggedIn()) {
-            header("Location: ../login.php");
+            header("Location: ../signin.php");
             exit();
         }
     }
