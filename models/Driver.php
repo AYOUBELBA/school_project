@@ -8,14 +8,26 @@ class Driver {
     }
     
     public function getAll() {
-        $query = "SELECT d.*, u.email, u.username 
-                  FROM " . $this->table . " d
-                  LEFT JOIN users u ON d.user_id = u.id
-                  ORDER BY d.id DESC";
+        $query = "SELECT d.*, u.email, u.username, 
+                t.id as truck_id, t.plate_number as truck_plate
+                FROM " . $this->table . " d
+                LEFT JOIN users u ON d.user_id = u.id
+                LEFT JOIN trucks t ON t.current_driver_id = d.id
+                ORDER BY d.id DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+    public function getExpiringLicenses($days = 30) {
+    $query = "SELECT * FROM " . $this->table . "
+              WHERE license_expiry <= CURRENT_DATE + INTERVAL '$days days'
+              AND license_expiry >= CURRENT_DATE
+              AND status != 'off'
+              ORDER BY license_expiry ASC";
+    $stmt = $this->conn->prepare($query);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
     
     public function getById($id) {
         $query = "SELECT * FROM " . $this->table . " WHERE id = :id";
@@ -27,11 +39,12 @@ class Driver {
     
     public function create($data) {
         $query = "INSERT INTO " . $this->table . "
-                  (full_name, phone, license_number, license_expiry, status, hire_date, address)
-                  VALUES (:full_name, :phone, :license_number, :license_expiry, :status, :hire_date, :address)
+                  (user_id, full_name, phone, license_number, license_expiry, status, hire_date, address)
+                  VALUES (:user_id, :full_name, :phone, :license_number, :license_expiry, :status, :hire_date, :address)
                   RETURNING id";
         
         $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':user_id', $data['user_id']);
         $stmt->bindParam(':full_name', $data['full_name']);
         $stmt->bindParam(':phone', $data['phone']);
         $stmt->bindParam(':license_number', $data['license_number']);
@@ -88,16 +101,6 @@ class Driver {
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-    
-    public function getExpiringLicenses($days = 30) {
-        $query = "SELECT * FROM " . $this->table . "
-                  WHERE license_expiry <= CURRENT_DATE + INTERVAL '$days days'
-                  AND license_expiry >= CURRENT_DATE
-                  ORDER BY license_expiry ASC";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?>

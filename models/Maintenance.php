@@ -17,18 +17,6 @@ class Maintenance {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    public function getUpcomingMaintenance($days = 30) {
-        $query = "SELECT m.*, t.plate_number as truck_plate, t.model as truck_model
-                  FROM " . $this->table . " m
-                  LEFT JOIN trucks t ON m.truck_id = t.id
-                  WHERE m.next_due_date <= CURRENT_DATE + INTERVAL '$days days'
-                  AND m.status != 'completed'
-                  ORDER BY m.next_due_date ASC";
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-    
     public function getById($id) {
         $query = "SELECT * FROM " . $this->table . " WHERE id = :id";
         $stmt = $this->conn->prepare($query);
@@ -39,8 +27,10 @@ class Maintenance {
     
     public function create($data) {
         $query = "INSERT INTO " . $this->table . "
-                  (truck_id, maintenance_type, description, cost, maintenance_date, next_due_date, odometer_at_service, performed_by, status, notes)
-                  VALUES (:truck_id, :maintenance_type, :description, :cost, :maintenance_date, :next_due_date, :odometer_at_service, :performed_by, :status, :notes)
+                  (truck_id, maintenance_type, description, cost, maintenance_date, next_due_date, 
+                   odometer_at_service, performed_by, status, notes)
+                  VALUES (:truck_id, :maintenance_type, :description, :cost, :maintenance_date, :next_due_date,
+                          :odometer_at_service, :performed_by, :status, :notes)
                   RETURNING id";
         
         $stmt = $this->conn->prepare($query);
@@ -64,16 +54,10 @@ class Maintenance {
     
     public function update($id, $data) {
         $query = "UPDATE " . $this->table . "
-                  SET truck_id = :truck_id,
-                      maintenance_type = :maintenance_type,
-                      description = :description,
-                      cost = :cost,
-                      maintenance_date = :maintenance_date,
-                      next_due_date = :next_due_date,
-                      odometer_at_service = :odometer_at_service,
-                      performed_by = :performed_by,
-                      status = :status,
-                      notes = :notes
+                  SET truck_id = :truck_id, maintenance_type = :maintenance_type, description = :description,
+                      cost = :cost, maintenance_date = :maintenance_date, next_due_date = :next_due_date,
+                      odometer_at_service = :odometer_at_service, performed_by = :performed_by,
+                      status = :status, notes = :notes
                   WHERE id = :id";
         
         $stmt = $this->conn->prepare($query);
@@ -99,16 +83,11 @@ class Maintenance {
         return $stmt->execute();
     }
     
-    public function getStats() {
-        $query = "SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN status = 'scheduled' THEN 1 END) as scheduled,
-                    COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress,
-                    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed
-                  FROM " . $this->table;
+    public function getTrucks() {
+        $query = "SELECT id, plate_number, model FROM trucks WHERE status = 'active' ORDER BY plate_number";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?>

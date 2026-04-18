@@ -1,6 +1,8 @@
 <?php
+// At the top of sidebar.php
 $current_page = basename($_SERVER['PHP_SELF']);
-$role = $_SESSION['user_role'] ?? 'driver';
+// Get role from session (check both possibilities)
+$role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'manager';
 ?>
 <aside class="sidebar w-72 bg-white shadow-lg fixed h-full overflow-y-auto z-10">
     <div class="p-6 border-b border-gray-200">
@@ -57,6 +59,10 @@ $role = $_SESSION['user_role'] ?? 'driver';
         <a href="reports.php" class="sidebar-item <?php echo $current_page == 'reports.php' ? 'active' : ''; ?> flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700">
             <i class="ri-bar-chart-2-line text-xl"></i>
             <span class="font-medium">Reports & Analytics</span>
+        </a>
+        <a href="tracking.php" class="sidebar-item <?php echo $current_page == 'tracking.php' ? 'active' : ''; ?> flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700">
+            <i class="ri-map-pin-line text-xl"></i>
+            <span class="font-medium">Live Tracking</span>
         </a>
         <?php if($role == 'admin'): ?>
         <a href="users.php" class="sidebar-item <?php echo $current_page == 'users.php' ? 'active' : ''; ?> flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700">

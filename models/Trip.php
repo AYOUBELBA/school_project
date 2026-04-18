@@ -97,12 +97,17 @@ class Trip {
     }
     
     public function generateTripNumber() {
-        $query = "SELECT 'TR-' || LPAD(COALESCE(MAX(CAST(SUBSTRING(trip_number FROM 4) AS INTEGER)), 0) + 1, 4, '0') as new_number 
-                  FROM " . $this->table;
+        // Fixed PostgreSQL compatible version
+        $query = "SELECT COALESCE(
+                    (SELECT MAX(CAST(SUBSTRING(trip_number FROM 4) AS INTEGER)) 
+                     FROM " . $this->table . " 
+                     WHERE trip_number ~ '^TR-[0-9]+$'), 
+                    0) as max_num";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $result['new_number'];
+        $nextNum = $result['max_num'] + 1;
+        return 'TR-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
     }
 }
 ?>

@@ -59,14 +59,15 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                 session_start();
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_email'] = $user['email'];
-                $_SESSION['username'] = $user['username']; // Fixed: using username column
+                $_SESSION['username'] = $user['username'];
                 $_SESSION['user_role'] = $user['role'];
+                $_SESSION['role'] = $user['role'];  // ADD THIS LINE for consistency
                 $_SESSION['last_login'] = $user['last_login'];
                 $_SESSION['login_time'] = time();
                 
                 // Redirect based on role
                 if ($user['role'] == 'driver') {
-                    header("Location: ../driver_dashboard.php");
+                    header("Location: ../pages/driver_dashboard.php");
                 } else {
                     header("Location: ../pages/dashboard.php");
                 }

@@ -26,6 +26,11 @@ $user_email = $_SESSION['user_email'];
 $username = $_SESSION['username'];
 $role = $_SESSION['user_role'];
 
+if($role == "driver"){
+    header("Location: ../signin.php");
+    exit();
+}
+
 
 $database = new Database();
 $db = $database->getConnection();
@@ -43,7 +48,12 @@ $truckStats = $truckModel->getStats();
 $driverStats = $driverModel->getStats();
 $tripStats = $tripModel->getStats();
 $activeTrips = $tripModel->getActiveTrips();
-$expiringLicenses = $driverModel->getExpiringLicenses(30);
+try {
+    $expiringLicenses = $driverModel->getExpiringLicenses(30);
+} catch (Exception $e) {
+    $expiringLicenses = [];
+    error_log("Error getting expiring licenses: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>

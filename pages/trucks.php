@@ -1,13 +1,20 @@
 <?php
+require_once '../config/session.php';
 require_once '../config/database.php';
-require_once '../config/auth.php';
 require_once '../models/Truck.php';
 require_once '../models/Driver.php';
 
 $database = new Database();
 $db = $database->getConnection();
-$auth = new Auth($db);
-$auth->requireLogin();
+
+if(!isset($_SESSION['user_id'])) {
+    header("Location: ../signin.php");
+    exit();
+}
+if($_SESSION['user_role'] == "driver"){
+    header("Location: ../signin.php");
+    exit();
+}
 
 $truckModel = new Truck($db);
 $driverModel = new Driver($db);
@@ -37,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'capacity_kg' => $_POST['capacity_kg'],
                     'fuel_type' => $_POST['fuel_type'],
                     'status' => $_POST['status'],
-                    'current_driver_id' => $_POST['current_driver_id'] ?: null
+                    'current_driver_id' => !empty($_POST['current_driver_id']) ? $_POST['current_driver_id'] : null
                 ];
                 $truckModel->update($_POST['id'], $data);
                 break;
@@ -62,6 +69,13 @@ $availableDrivers = $driverModel->getAll();
     <title>Trucks Management | Fleet System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        .status-badge { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-maintenance { background: #fed7aa; color: #92400e; }
+        .status-inactive { background: #fee2e2; color: #991b1b; }
+        .modal { transition: all 0.3s ease; }
+    </style>
 </head>
 <body>
 
@@ -76,7 +90,7 @@ $availableDrivers = $driverModel->getAll();
                 <h2 class="text-2xl font-bold text-gray-800">Trucks Management</h2>
                 <p class="text-gray-500">Manage your fleet vehicles</p>
             </div>
-            <button onclick="openModal('addTruckModal')" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-dark transition flex items-center gap-2">
+            <button onclick="openAddModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
                 <i class="ri-add-line"></i> Add Truck
             </button>
         </div>
@@ -116,7 +130,7 @@ $availableDrivers = $driverModel->getAll();
                             </td>
                             <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars($truck['driver_name'] ?? 'Not assigned'); ?></td>
                             <td class="px-6 py-4 text-sm">
-                                <button onclick="editTruck(<?php echo htmlspecialchars(json_encode($truck)); ?>)" class="text-blue-600 hover:text-blue-800 mr-2">
+                                <button onclick="openEditModal(<?php echo htmlspecialchars(json_encode($truck)); ?>)" class="text-blue-600 hover:text-blue-800 mr-2">
                                     <i class="ri-edit-line"></i>
                                 </button>
                                 <button onclick="deleteTruck(<?php echo $truck['id']; ?>)" class="text-red-600 hover:text-red-800">
@@ -132,52 +146,136 @@ $availableDrivers = $driverModel->getAll();
     </div>
 </main>
 
-<!-- Add/Edit Truck Modal -->
+<!-- Add Truck Modal -->
 <div id="addTruckModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Add New Truck</h3>
         <form method="POST">
             <input type="hidden" name="action" value="create">
             <div class="space-y-4">
-                <input type="text" name="plate_number" placeholder="Plate Number" required class="w-full px-3 py-2 border rounded-lg">
-                <input type="text" name="model" placeholder="Model" required class="w-full px-3 py-2 border rounded-lg">
-                <input type="text" name="brand" placeholder="Brand" required class="w-full px-3 py-2 border rounded-lg">
-                <input type="number" name="year" placeholder="Year" required class="w-full px-3 py-2 border rounded-lg">
-                <input type="number" step="0.01" name="capacity_kg" placeholder="Capacity (kg)" required class="w-full px-3 py-2 border rounded-lg">
-                <select name="fuel_type" class="w-full px-3 py-2 border rounded-lg">
+                <input type="text" name="plate_number" placeholder="Plate Number" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="model" placeholder="Model" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="brand" placeholder="Brand" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="number" name="year" placeholder="Year" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="number" step="0.01" name="capacity_kg" placeholder="Capacity (kg)" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select name="fuel_type" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="diesel">Diesel</option>
                     <option value="petrol">Petrol</option>
                     <option value="electric">Electric</option>
                     <option value="hybrid">Hybrid</option>
                 </select>
-                <select name="status" class="w-full px-3 py-2 border rounded-lg">
+                <select name="status" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="active">Active</option>
                     <option value="maintenance">Maintenance</option>
                     <option value="inactive">Inactive</option>
                 </select>
             </div>
+                        <!--set a truck driver-->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Assign Driver (Optional)</label>
+                <select name="current_driver_id" id="edit_driver_id" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- No Driver Assigned --</option>
+                    <?php 
+                    // Get all available drivers
+                    $driverSql = "SELECT id, full_name FROM drivers WHERE status IN ('available', 'on_trip') ORDER BY full_name";
+                    $driverStmt = $db->prepare($driverSql);
+                    $driverStmt->execute();
+                    $allDrivers = $driverStmt->fetchAll(PDO::FETCH_ASSOC);
+                    foreach($allDrivers as $driver): 
+                    ?>
+                    <option value="<?php echo $driver['id']; ?>"><?php echo htmlspecialchars($driver['full_name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Select a driver to assign to this truck</p>
+            </div>
             <div class="flex justify-end gap-2 mt-6">
-                <button type="button" onclick="closeModal('addTruckModal')" class="px-4 py-2 border rounded-lg">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Save</button>
+                <button type="button" onclick="closeModal('addTruckModal')" class="px-4 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Truck Modal -->
+<div id="editTruckModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-4">Edit Truck</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="update">
+            <input type="hidden" name="id" id="edit_id">
+            <div class="space-y-4">
+                <input type="text" name="plate_number" id="edit_plate_number" placeholder="Plate Number" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="model" id="edit_model" placeholder="Model" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" name="brand" id="edit_brand" placeholder="Brand" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="number" name="year" id="edit_year" placeholder="Year" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="number" step="0.01" name="capacity_kg" id="edit_capacity_kg" placeholder="Capacity (kg)" required class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select name="fuel_type" id="edit_fuel_type" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="diesel">Diesel</option>
+                    <option value="petrol">Petrol</option>
+                    <option value="electric">Electric</option>
+                    <option value="hybrid">Hybrid</option>
+                </select>
+                <select name="status" id="edit_status" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="active">Active</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+                <select name="current_driver_id" id="edit_driver_id" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">No Driver Assigned</option>
+                    <?php foreach($availableDrivers as $driver): ?>
+                    <option value="<?php echo $driver['id']; ?>"><?php echo htmlspecialchars($driver['full_name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="closeModal('editTruckModal')" class="px-4 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Update</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-function openModal(id) {
-    document.getElementById(id).classList.remove('hidden');
-    document.getElementById(id).classList.add('flex');
+function openAddModal() {
+    document.getElementById('addTruckModal').classList.remove('hidden');
+    document.getElementById('addTruckModal').classList.add('flex');
+}
+
+function openEditModal(truck) {
+    document.getElementById('edit_id').value = truck.id;
+    document.getElementById('edit_plate_number').value = truck.plate_number;
+    document.getElementById('edit_model').value = truck.model;
+    document.getElementById('edit_brand').value = truck.brand;
+    document.getElementById('edit_year').value = truck.year;
+    document.getElementById('edit_capacity_kg').value = truck.capacity_kg;
+    document.getElementById('edit_fuel_type').value = truck.fuel_type;
+    document.getElementById('edit_status').value = truck.status;
+    document.getElementById('edit_driver_id').value = truck.driver_id || '';
+    
+    document.getElementById('editTruckModal').classList.remove('hidden');
+    document.getElementById('editTruckModal').classList.add('flex');
+}
+function editTruck(truck) {
+    document.getElementById('edit_id').value = truck.id;
+    document.getElementById('edit_plate_number').value = truck.plate_number;
+    document.getElementById('edit_model').value = truck.model;
+    document.getElementById('edit_brand').value = truck.brand;
+    document.getElementById('edit_year').value = truck.year;
+    document.getElementById('edit_capacity_kg').value = truck.capacity_kg;
+    document.getElementById('edit_fuel_type').value = truck.fuel_type;
+    document.getElementById('edit_status').value = truck.status;
+    
+    const driverSelect = document.getElementById('edit_driver_id');
+    if(driverSelect && truck.driver_id) {
+        driverSelect.value = truck.driver_id;
+    }
+    
+    openModal('editTruckModal');
 }
 
 function closeModal(id) {
     document.getElementById(id).classList.add('hidden');
     document.getElementById(id).classList.remove('flex');
-}
-
-function editTruck(truck) {
-    // Implement edit functionality
-    alert('Edit truck: ' + truck.plate_number);
 }
 
 function deleteTruck(id) {
@@ -190,12 +288,5 @@ function deleteTruck(id) {
     }
 }
 </script>
-
-<style>
-.status-badge { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
-.status-active { background: #d1fae5; color: #065f46; }
-.status-maintenance { background: #fed7aa; color: #92400e; }
-.status-inactive { background: #fee2e2; color: #991b1b; }
-</style>
 </body>
 </html>
