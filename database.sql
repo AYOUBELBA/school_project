@@ -46,6 +46,7 @@ CREATE TABLE trucks (
     odometer_km INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_location_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (current_driver_id) REFERENCES drivers(id) ON DELETE SET NULL
 );
 
@@ -154,6 +155,8 @@ CREATE TABLE truck_maintenance (
     status VARCHAR(20) CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')) DEFAULT 'scheduled',
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    location_lat DECIMAL(10,8),
+    location_lng DECIMAL(11,8),
     FOREIGN KEY (truck_id) REFERENCES trucks(id) ON DELETE CASCADE
 );
 
