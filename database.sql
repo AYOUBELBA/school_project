@@ -1,5 +1,3 @@
-
-
 -- Users table (authentication & roles)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
