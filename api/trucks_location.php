@@ -71,7 +71,24 @@ foreach($trucks as &$truck) {
     $truck['latitude'] = $truck['latitude'] ? floatval($truck['latitude']) : null;
     $truck['longitude'] = $truck['longitude'] ? floatval($truck['longitude']) : null;
     $truck['speed_kmh'] = $truck['speed_kmh'] ? floatval($truck['speed_kmh']) : 0;
-    $truck['last_update'] = $truck['last_location_update'] ? date('H:i:s', strtotime($truck['last_location_update'])) : 'Never';
+    $truck['last_update'] = $truck['last_location_update'] ? date('Y-m-d H:i:s', strtotime($truck['last_location_update'])) : null;
+    
+    // Only mark as stale if the truck has a driver assigned AND location is old
+    // Trucks without drivers or inactive trucks should just show their last known location without "stale" warning
+    if($truck['driver_name'] && $truck['truck_status'] === 'active' && $truck['last_location_update']) {
+        $lastUpdate = strtotime($truck['last_location_update']);
+        $minutesAgo = round((time() - $lastUpdate) / 60);
+        if($minutesAgo > 10) {
+            $truck['location_status'] = 'stale';
+            $truck['minutes_since_update'] = $minutesAgo;
+        } else {
+            $truck['location_status'] = 'fresh';
+            $truck['minutes_since_update'] = 0;
+        }
+    } else {
+        $truck['location_status'] = 'static';
+        $truck['minutes_since_update'] = null;
+    }
 }
 
 echo json_encode([
