@@ -213,12 +213,17 @@ $flash_success = $_SESSION['flash_success'] ?? '';
 $flash_error = $_SESSION['flash_error'] ?? '';
 unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
-$truckSql = "SELECT id, plate_number, model FROM trucks 
-             WHERE status = 'active' AND current_driver_id IS NULL 
+$truckSql = "SELECT id, plate_number, model, current_driver_id FROM trucks 
+             WHERE status = 'active' 
              ORDER BY plate_number";
 $truckStmt = $db->prepare($truckSql);
 $truckStmt->execute();
-$availableTrucks = $truckStmt->fetchAll(PDO::FETCH_ASSOC);
+$allTrucks = $truckStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Separate available trucks and currently assigned truck for each driver
+$availableTrucks = array_filter($allTrucks, function($truck) {
+    return $truck['current_driver_id'] === null;
+});
 
 $drivers = $driverModel->getAll();
 ?>
