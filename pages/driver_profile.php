@@ -7,7 +7,7 @@ $db = $database->getConnection();
 
 // Check if user is logged in
 if(!isset($_SESSION['user_id'])) {
-    header("Location: ../signin.html");
+    header("Location: ../signin.php");
     exit();
 }
 
@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         // Optional: Auto logout after password change
                         // session_destroy();
-                        // header("Location: ../signin.html");
+                        // header("Location: ../signin.php");
                         // exit();
                     } else {
                         $error = "Current password is incorrect";
