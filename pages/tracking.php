@@ -7,7 +7,7 @@ $db = $database->getConnection();
 
 // Check if user is logged in
 if(!isset($_SESSION['user_id'])) {
-    header("Location: ../signin.html");
+    header("Location: ../signin.php");
     exit();
 }
 
@@ -66,11 +66,13 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
             bottom: 20px;
             right: 20px;
             z-index: 1000;
-            background: white;
+            background: rgba(31, 41, 55, 0.95);
             padding: 10px 15px;
             border-radius: 8px;
             font-size: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            color: #f3f4f6;
+            backdrop-filter: blur(4px);
         }
         .legend-item {
             display: flex;
@@ -104,6 +106,11 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+            @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.3); opacity: 0.7; }
+        100% { transform: scale(1); opacity: 1; }
+    }
 
         /* DO NOT REMOVE */
         .leaflet-control-attribution {
@@ -115,16 +122,33 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
             bottom: 10px;
             right: 10px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.7);
             padding: 4px 10px;
             border-radius: 4px;
             font-size: 11px;
             font-family: 'Inter', sans-serif;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             pointer-events: none;
+            color: #9ca3af;
+        }
+        /* Prevent popup from closing when clicking inside */
+        .leaflet-popup-content {
+            pointer-events: auto;
         }
 
-
+        .leaflet-popup-close-button {
+            cursor: pointer;
+        }
+        /* Dark mode marker glow */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .custom-div-icon div {
+            animation: pulse 2s ease-in-out infinite;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -184,7 +208,7 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
                 </div>
             </div>
             
-            <!-- Legend -->
+            <!-- Legend (Dark mode for map only) -->
             <div class="legend">
                 <div class="legend-item">
                     <div class="legend-color" style="background: #10b981;"></div>
@@ -210,7 +234,7 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
                 <span id="lastUpdate">Auto-refreshing...</span>
             </div>
             
-            <!-- Map Container -->
+            <!-- Map Container with Dark Mode Tiles -->
             <div id="map"></div>
         </div>
         
@@ -233,12 +257,14 @@ let markers = {};
 let markerCluster;
 let updateInterval;
 let allTrucks = [];
+let currentlyOpenPopup = null;
+let currentOpenTruckId = null;
 
-// Initialize map
+// Initialize map with DARK MODE tiles
 function initMap() {
-    map = L.map('map').setView([31.7917, -7.0926], 6); // Centered on Morocco
+    map = L.map('map').setView([31.7917, -7.0926], 6);
     
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: 'Made by YourName',
         subdomains: 'abcd',
         maxZoom: 19,
@@ -259,7 +285,6 @@ function initMap() {
     // Start auto-refresh every 10 seconds
     updateInterval = setInterval(loadTrucks, 10000);
 }
-
 // Load trucks with current locations
 async function loadTrucks() {
     try {
@@ -314,83 +339,179 @@ async function loadFilters() {
 
 // Update map with truck markers
 function updateMap(trucks) {
+    // Clear all existing layers from cluster
     markerCluster.clearLayers();
+    
+    // Reset markers object
+    markers = {};
     
     trucks.forEach(truck => {
         if(truck.latitude && truck.longitude) {
-            // Determine marker color based on status
-            let markerColor = '#10b981'; // active - green
-            if(truck.truck_status === 'maintenance') markerColor = '#f59e0b'; // orange
-            if(truck.truck_status === 'inactive') markerColor = '#6b7280'; // gray
+            let markerColor = '#10b981';
+            let markerSize = 14;
+            let hasPulse = false;
+            let isStale = false;
             
-            // Create custom icon
+            if(!truck.driver_name) {
+                markerColor = '#9ca3af';
+            } else if(truck.truck_status === 'inactive') {
+                markerColor = '#6b7280';
+            } else if(truck.truck_status === 'maintenance') {
+                markerColor = '#f59e0b';
+            } else if(truck.location_status === 'stale') {
+                markerColor = '#8b5cf6';
+                isStale = true;
+            } else if(truck.truck_status === 'active' && truck.driver_name) {
+                markerColor = '#10b981';
+                hasPulse = true;
+            }
+            
             const truckIcon = L.divIcon({
-                html: `<div style="background-color: ${markerColor}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>`,
+                html: `<div style="
+                    background-color: ${markerColor}; 
+                    width: ${markerSize}px; 
+                    height: ${markerSize}px; 
+                    border-radius: 50%; 
+                    border: 2px solid white; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    ${hasPulse ? 'animation: pulse 2s ease-in-out infinite;' : ''}
+                "></div>`,
                 className: 'custom-div-icon',
-                iconSize: [16, 16],
+                iconSize: [markerSize + 4, markerSize + 4],
                 popupAnchor: [0, -8]
             });
             
-            const marker = L.marker([truck.latitude, truck.longitude], { icon: truckIcon })
-                .bindPopup(`
-                    <div style="min-width: 200px;">
-                        <div class="font-bold text-gray-800">${truck.plate_number}</div>
-                        <div class="text-sm">${truck.model} ${truck.brand || ''}</div>
-                        <hr class="my-1">
-                        <div><i class="ri-user-line"></i> Driver: ${truck.driver_name || 'Not assigned'}</div>
-                        <div><i class="ri-speed-line"></i> Speed: ${truck.speed_kmh || 0} km/h</div>
-                        <div><i class="ri-truck-line"></i> Status: <span class="status-${truck.truck_status}">${truck.truck_status}</span></div>
-                        <div><i class="ri-map-pin-line"></i> Trip: ${truck.trip_status || 'No active trip'}</div>
-                        <div class="text-xs text-gray-500 mt-1">Last update: ${truck.last_update || 'N/A'}</div>
-                    </div>
-                `);
+            let driverInfo = '';
+            let locationInfo = '';
             
-            markerCluster.addLayer(marker);
+            if(!truck.driver_name) {
+                driverInfo = '<span class="text-orange-500">⚠️ No driver assigned</span>';
+                locationInfo = '<span class="text-gray-500">📍 Last known position</span>';
+            } else if(truck.truck_status === 'inactive') {
+                driverInfo = `Driver: ${truck.driver_name}`;
+                locationInfo = '<span class="text-gray-500">🚫 Truck inactive</span>';
+            } else if(truck.truck_status === 'maintenance') {
+                driverInfo = `Driver: ${truck.driver_name}`;
+                locationInfo = '<span class="text-orange-500">🔧 In maintenance</span>';
+            } else if(isStale) {
+                driverInfo = `Driver: ${truck.driver_name}`;
+                locationInfo = `<span class="text-purple-500">⚠️ No recent updates (${truck.minutes_since_update} min ago)</span>`;
+            } else {
+                driverInfo = `Driver: ${truck.driver_name}`;
+                locationInfo = '<span class="text-green-500">🟢 Live tracking</span>';
+            }
+            
+            // Create marker
+            const marker = L.marker([truck.latitude, truck.longitude], { icon: truckIcon });
+            
+            // Bind popup
+            marker.bindPopup(`
+                <div style="min-width: 220px;">
+                    <div class="font-bold text-gray-800 text-base">${truck.plate_number}</div>
+                    <div class="text-sm text-gray-600">${truck.model} ${truck.brand || ''}</div>
+                    <hr class="my-2">
+                    <div><i class="ri-user-line"></i> ${driverInfo}</div>
+                    <div><i class="ri-speed-line"></i> Speed: ${truck.speed_kmh || 0} km/h</div>
+                    <div><i class="ri-truck-line"></i> Status: <span class="status-${truck.truck_status}">${truck.truck_status}</span></div>
+                    <div class="text-xs mt-2">
+                        ${locationInfo}
+                    </div>
+                    <div class="text-xs text-gray-400">Last update: ${truck.last_update || 'Never'}</div>
+                </div>
+            `, {
+                autoPan: false,
+                closeOnClick: false,
+                autoClose: false,
+                closeButton: true
+            });
+            
+            // Store reference
             markers[truck.id] = marker;
+            
+            // Add to cluster
+            markerCluster.addLayer(marker);
         }
     });
+    
+    // Log for debugging
+    console.log('Markers added:', Object.keys(markers).length);
 }
-
 // Update truck list sidebar
 function updateTruckList(trucks) {
     const container = document.getElementById('truckList');
     if(!container) return;
     
-    container.innerHTML = trucks.map(truck => `
-        <div class="truck-card p-3 cursor-pointer hover:bg-gray-50 transition" onclick="centerOnTruck(${truck.latitude}, ${truck.longitude}, '${truck.plate_number}')">
-            <div class="flex justify-between items-start">
-                <div>
-                    <div class="font-medium text-gray-800">${truck.plate_number}</div>
-                    <div class="text-xs text-gray-500">${truck.model}</div>
+    container.innerHTML = trucks.map(truck => {
+        let statusIcon = '';
+        let statusColor = '';
+        let locationText = '';
+        
+        if(!truck.driver_name) {
+            statusIcon = '⚠️';
+            statusColor = 'text-orange-500';
+            locationText = '<span class="text-gray-400">📍 Last known position</span>';
+        } else if(truck.truck_status === 'inactive') {
+            statusIcon = '❌';
+            statusColor = 'text-gray-500';
+            locationText = '<span class="text-gray-400">🚫 Inactive</span>';
+        } else if(truck.truck_status === 'maintenance') {
+            statusIcon = '🔧';
+            statusColor = 'text-orange-500';
+            locationText = '<span class="text-orange-500">🔧 Maintenance</span>';
+        } else if(truck.location_status === 'stale') {
+            statusIcon = '⚠️';
+            statusColor = 'text-purple-500';
+            locationText = `<span class="text-purple-500">⚠️ No update (${truck.minutes_since_update} min)</span>`;
+        } else if(truck.truck_status === 'active' && truck.driver_name) {
+            statusIcon = '✅';
+            statusColor = 'text-green-500';
+            locationText = '<span class="text-green-500">🟢 Live</span>';
+        } else {
+            statusIcon = '❓';
+            statusColor = 'text-gray-500';
+            locationText = '<span class="text-gray-400">📍 Unknown</span>';
+        }
+        
+        return `
+            <div class="truck-card p-3 cursor-pointer hover:bg-gray-50 transition" onclick="centerOnTruck(${truck.latitude || 0}, ${truck.longitude || 0}, '${truck.plate_number}', ${truck.id})">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="font-medium text-gray-800">${statusIcon} ${truck.plate_number}</div>
+                        <div class="text-xs text-gray-500">${truck.model}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs font-medium ${statusColor}">${truck.truck_status}</div>
+                        <div class="text-xs text-gray-500">${truck.speed_kmh || 0} km/h</div>
+                    </div>
                 </div>
-                <div class="text-right">
-                    <div class="text-xs font-medium status-${truck.truck_status}">${truck.truck_status}</div>
-                    <div class="text-xs text-gray-500">${truck.speed_kmh || 0} km/h</div>
+                <div class="text-xs text-gray-600 mt-1">
+                    <i class="ri-user-line"></i> ${truck.driver_name || '<span class="text-orange-500">No driver</span>'}
+                </div>
+                <div class="text-xs mt-1">
+                    ${locationText}
                 </div>
             </div>
-            <div class="text-xs text-gray-600 mt-1">
-                <i class="ri-user-line"></i> ${truck.driver_name || 'No driver'}
-            </div>
-            <div class="text-xs text-gray-500 mt-1">
-                📍 ${truck.latitude ? truck.latitude.toFixed(6) : 'No location'} / ${truck.longitude ? truck.longitude.toFixed(6) : ''}
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
-
 // Center map on a specific truck
-function centerOnTruck(lat, lng, plate) {
+function centerOnTruck(lat, lng, plate, truckId) {
     if(lat && lng) {
         map.setView([lat, lng], 14);
-        // Show popup for this truck
-        Object.values(markers).forEach(marker => {
-            if(marker.getPopup() && marker.getPopup().getContent().includes(plate)) {
-                marker.openPopup();
-            }
-        });
+        if(truckId && markers[truckId]) {
+            markers[truckId].openPopup();
+            currentOpenTruckId = truckId;
+        } else {
+            // Fallback: search by plate number
+            Object.values(markers).forEach(marker => {
+                if(marker.getPopup() && marker.getPopup().getContent().includes(plate)) {
+                    marker.openPopup();
+                    currentOpenTruckId = Object.keys(markers).find(key => markers[key] === marker);
+                }
+            });
+        }
     }
 }
-
 // Apply filters
 function applyFilters() {
     loadTrucks();
