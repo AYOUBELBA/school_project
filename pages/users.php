@@ -7,7 +7,7 @@ $db = $database->getConnection();
 
 // Check if user is logged in
 if(!isset($_SESSION['user_id'])) {
-    header("Location: ../signin.html");
+    header("Location: ../signin.php");
     exit();
 }
 
