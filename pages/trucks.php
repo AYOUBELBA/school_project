@@ -19,11 +19,36 @@ if($_SESSION['user_role'] == "driver"){
 $truckModel = new Truck($db);
 $driverModel = new Driver($db);
 
+// Function to check if driver is already assigned to another truck
+function isDriverAssignedToOtherTruck($db, $driver_id, $current_truck_id = null) {
+    $sql = "SELECT id, plate_number FROM trucks WHERE current_driver_id = :driver_id";
+    $stmt = $db->prepare($sql);
+    $stmt->bindParam(':driver_id', $driver_id);
+    $stmt->execute();
+    $truck = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if($truck && $truck['id'] != $current_truck_id) {
+        return $truck;
+    }
+    return false;
+}
+
 // Handle CRUD operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'create':
+                    $assigned_driver_id = !empty($_POST['current_driver_id']) ? $_POST['current_driver_id'] : null;
+    
+                // Check if driver is already assigned to another truck
+                if($assigned_driver_id) {
+                    $conflict = isDriverAssignedToOtherTruck($db, $assigned_driver_id);
+                    if($conflict) {
+                        $_SESSION['flash_error'] = "Driver is already assigned to truck " . $conflict['plate_number'];
+                        header("Location: trucks.php");
+                        exit();
+                    }
+                }
                 $data = [
                     'plate_number' => $_POST['plate_number'],
                     'model' => $_POST['model'],
@@ -36,6 +61,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $truckModel->create($data);
                 break;
             case 'update':
+                    $id = $_POST['id'];
+                    $assigned_driver_id = !empty($_POST['current_driver_id']) ? $_POST['current_driver_id'] : null;
+                    
+                    // Check if driver is already assigned to another truck
+                    if($assigned_driver_id) {
+                        $conflict = isDriverAssignedToOtherTruck($db, $assigned_driver_id, $id);
+                        if($conflict) {
+                            $_SESSION['flash_error'] = "Driver is already assigned to truck " . $conflict['plate_number'] . ". Please unassign them first.";
+                            header("Location: trucks.php");
+                            exit();
+                        }
+                    }
                 $data = [
                     'plate_number' => $_POST['plate_number'],
                     'model' => $_POST['model'],
