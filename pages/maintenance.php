@@ -1,8 +1,6 @@
 <?php
 require_once '../config/session.php';
 require_once '../config/database.php';
-require_once '../models/Maintenance.php';
-require_once '../models/Truck.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -11,60 +9,8 @@ if(!isset($_SESSION['user_id'])) {
     header("Location: ../signin.php");
     exit();
 }
-if($_SESSION['user_role'] == "driver"){
-    header("Location: ../signin.php");
-    exit();
-}
 
-
-$maintenanceModel = new Maintenance($db);
-$truckModel = new Truck($db);
-
-// Handle CRUD operations
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
-            case 'create':
-                $data = [
-                    'truck_id' => $_POST['truck_id'],
-                    'maintenance_type' => $_POST['maintenance_type'],
-                    'description' => $_POST['description'],
-                    'cost' => !empty($_POST['cost']) ? $_POST['cost'] : null,
-                    'maintenance_date' => $_POST['maintenance_date'],
-                    'next_due_date' => !empty($_POST['next_due_date']) ? $_POST['next_due_date'] : null,
-                    'odometer_at_service' => !empty($_POST['odometer_at_service']) ? $_POST['odometer_at_service'] : null,
-                    'performed_by' => $_POST['performed_by'],
-                    'status' => $_POST['status'],
-                    'notes' => $_POST['notes']
-                ];
-                $maintenanceModel->create($data);
-                break;
-            case 'update':
-                $data = [
-                    'truck_id' => $_POST['truck_id'],
-                    'maintenance_type' => $_POST['maintenance_type'],
-                    'description' => $_POST['description'],
-                    'cost' => !empty($_POST['cost']) ? $_POST['cost'] : null,
-                    'maintenance_date' => $_POST['maintenance_date'],
-                    'next_due_date' => !empty($_POST['next_due_date']) ? $_POST['next_due_date'] : null,
-                    'odometer_at_service' => !empty($_POST['odometer_at_service']) ? $_POST['odometer_at_service'] : null,
-                    'performed_by' => $_POST['performed_by'],
-                    'status' => $_POST['status'],
-                    'notes' => $_POST['notes']
-                ];
-                $maintenanceModel->update($_POST['id'], $data);
-                break;
-            case 'delete':
-                $maintenanceModel->delete($_POST['id']);
-                break;
-        }
-        header("Location: maintenance.php");
-        exit();
-    }
-}
-
-$maintenances = $maintenanceModel->getAll();
-$trucks = $truckModel->getAll();
+$role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
 ?>
 
 <!DOCTYPE html>
@@ -80,11 +26,59 @@ $trucks = $truckModel->getAll();
         .status-scheduled { background: #fed7aa; color: #92400e; }
         .status-in_progress { background: #dbeafe; color: #1e40af; }
         .status-completed { background: #d1fae5; color: #065f46; }
-        .status-cancelled { background: #fee2e2; color: #991b1b; }
         .severity-low { background: #d1fae5; color: #065f46; }
         .severity-medium { background: #fed7aa; color: #92400e; }
         .severity-high { background: #fee2e2; color: #991b1b; }
         .severity-critical { background: #fecaca; color: #7f1d1d; }
+        
+        .clickable-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .clickable-row:hover {
+            background-color: #f3f4f6;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .detail-row {
+            display: flex;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .detail-label {
+            width: 120px;
+            font-weight: 500;
+            color: #6b7280;
+        }
+        .detail-value {
+            flex: 1;
+            color: #1f2937;
+        }
     </style>
 </head>
 <body>
@@ -100,14 +94,6 @@ $trucks = $truckModel->getAll();
                 <h2 class="text-2xl font-bold text-gray-800">Maintenance & Incidents</h2>
                 <p class="text-gray-500">Track truck maintenance and record incidents</p>
             </div>
-            <div class="flex gap-3">
-                <button onclick="openModal('addMaintenanceModal')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
-                    <i class="ri-tools-line"></i> Log Maintenance
-                </button>
-                <button onclick="openModal('addIncidentModal')" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center gap-2">
-                    <i class="ri-alert-line"></i> Report Incident
-                </button>
-            </div>
         </div>
         
         <!-- Tabs -->
@@ -119,172 +105,396 @@ $trucks = $truckModel->getAll();
                 <li class="mr-2">
                     <button onclick="showTab('incidents')" id="tabIncidentsBtn" class="inline-block p-4 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300">Incidents</button>
                 </li>
+                <li class="mr-2">
+                    <button onclick="showTab('reports')" id="tabReportsBtn" class="inline-block p-4 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300">Driver Reports</button>
+                </li>
             </ul>
         </div>
         
         <!-- Maintenance Tab -->
-        <div id="maintenanceTab" class="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Truck</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Next Due</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <?php foreach($maintenances as $item): ?>
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 text-sm"><?php echo $item['id']; ?></td>
-                            <td class="px-6 py-4 text-sm font-medium"><?php echo htmlspecialchars($item['truck_plate']); ?></td>
-                            <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars($item['maintenance_type']); ?></td>
-                            <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars(substr($item['description'], 0, 30)); ?>...</td>
-                            <td class="px-6 py-4 text-sm">$<?php echo number_format($item['cost'], 2); ?></td>
-                            <td class="px-6 py-4 text-sm"><?php echo date('Y-m-d', strtotime($item['maintenance_date'])); ?></td>
-                            <td class="px-6 py-4 text-sm"><?php echo $item['next_due_date'] ? date('Y-m-d', strtotime($item['next_due_date'])) : 'N/A'; ?></td>
-                            <td class="px-6 py-4">
-                                <span class="status-badge status-<?php echo $item['status']; ?>">
-                                    <?php echo str_replace('_', ' ', ucfirst($item['status'])); ?>
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-sm">
-                                <button onclick="editMaintenance(<?php echo htmlspecialchars(json_encode($item)); ?>)" class="text-blue-600 hover:text-blue-800 mr-2">
-                                    <i class="ri-edit-line"></i>
-                                </button>
-                                <button onclick="deleteMaintenance(<?php echo $item['id']; ?>)" class="text-red-600 hover:text-red-800">
-                                    <i class="ri-delete-bin-line"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+        <div id="maintenanceTab">
+            <?php
+            $mainSql = "SELECT m.*, t.plate_number as truck_plate, t.model as truck_model,
+                        d.full_name as driver_name
+                        FROM truck_maintenance m
+                        LEFT JOIN trucks t ON m.truck_id = t.id
+                        LEFT JOIN drivers d ON t.current_driver_id = d.id
+                        ORDER BY m.maintenance_date DESC";
+            $mainStmt = $db->prepare($mainSql);
+            $mainStmt->execute();
+            $maintenances = $mainStmt->fetchAll(PDO::FETCH_ASSOC);
+            ?>
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Truck</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <?php foreach($maintenances as $item): ?>
+                            <tr class="clickable-row" onclick='showMaintenanceDetail(<?php echo json_encode($item); ?>)'>
+                                <td class="px-6 py-4 text-sm"><?php echo $item['id']; ?></td>
+                                <td class="px-6 py-4 text-sm font-medium"><?php echo htmlspecialchars($item['truck_plate']); ?></td>
+                                <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars($item['maintenance_type']); ?></td>
+                                <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars(substr($item['description'], 0, 50)); ?>...</td>
+                                <td class="px-6 py-4 text-sm">$<?php echo number_format($item['cost'], 2); ?></td>
+                                <td class="px-6 py-4 text-sm"><?php echo date('Y-m-d', strtotime($item['maintenance_date'])); ?></td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-<?php echo $item['status']; ?>">
+                                        <?php echo str_replace('_', ' ', ucfirst($item['status'])); ?>
+                                    </span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         
-        <!-- Incidents Tab (Placeholder) -->
-        <div id="incidentsTab" class="hidden bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="p-8 text-center text-gray-500">
-                <i class="ri-alert-line text-6xl mb-4"></i>
-                <p>Incidents module coming soon. You can report incidents using the button above.</p>
+        <!-- Incidents Tab -->
+        <div id="incidentsTab" class="hidden">
+            <?php
+            $incSql = "SELECT i.*, t.plate_number as truck_plate, d.full_name as driver_name
+                       FROM incidents i
+                       LEFT JOIN trucks t ON i.truck_id = t.id
+                       LEFT JOIN drivers d ON i.driver_id = d.id
+                       ORDER BY i.incident_date DESC";
+            $incStmt = $db->prepare($incSql);
+            $incStmt->execute();
+            $incidents = $incStmt->fetchAll(PDO::FETCH_ASSOC);
+            ?>
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Incident #</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Truck</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <?php foreach($incidents as $incident): ?>
+                            <tr class="clickable-row" onclick='showIncidentDetail(<?php echo json_encode($incident); ?>)'>
+                                <td class="px-6 py-4 text-sm font-medium"><?php echo htmlspecialchars($incident['incident_number']); ?></td>
+                                <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars($incident['truck_plate']); ?></td>
+                                <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars($incident['driver_name']); ?></td>
+                                <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars(substr($incident['description'], 0, 50)); ?>...</td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge severity-<?php echo $incident['severity']; ?>">
+                                        <?php echo ucfirst($incident['severity']); ?>
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm"><?php echo date('Y-m-d H:i', strtotime($incident['incident_date'])); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Driver Reports Tab -->
+        <div id="reportsTab" class="hidden">
+            <?php
+            $reportSql = "SELECT i.*, t.plate_number as truck_plate, d.full_name as driver_name,
+                          u.username as reported_by_name
+                          FROM incidents i
+                          LEFT JOIN trucks t ON i.truck_id = t.id
+                          LEFT JOIN drivers d ON i.driver_id = d.id
+                          LEFT JOIN users u ON i.reported_by = u.id
+                          WHERE i.severity = 'low' OR i.description LIKE '%issue%'
+                          ORDER BY i.created_at DESC
+                          LIMIT 50";
+            $reportStmt = $db->prepare($reportSql);
+            $reportStmt->execute();
+            $reports = $reportStmt->fetchAll(PDO::FETCH_ASSOC);
+            ?>
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 bg-yellow-50 border-b border-yellow-200">
+                    <p class="text-sm text-yellow-800">📢 Reports submitted by drivers via mobile app</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Truck</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Report</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <?php foreach($reports as $report): ?>
+                            <tr class="clickable-row" onclick='showReportDetail(<?php echo json_encode($report); ?>)'>
+                                <td class="px-6 py-4 text-sm"><?php echo date('Y-m-d H:i', strtotime($report['created_at'])); ?></td>
+                                <td class="px-6 py-4 text-sm font-medium"><?php echo htmlspecialchars($report['driver_name']); ?></td>
+                                <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars($report['truck_plate']); ?></td>
+                                <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars(substr($report['description'], 0, 80)); ?></td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-scheduled">Pending Review</span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php if(empty($reports)): ?>
+                            <tr>
+                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">No driver reports yet</td>
+                            </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </main>
 
-<!-- Add Maintenance Modal -->
-<div id="addMaintenanceModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h3 class="text-lg font-semibold mb-4">Log Maintenance</h3>
-        <form method="POST">
-            <input type="hidden" name="action" value="create">
-            <div class="space-y-4">
-                <select name="truck_id" required class="w-full px-3 py-2 border rounded-lg">
-                    <option value="">Select Truck</option>
-                    <?php foreach($trucks as $truck): ?>
-                    <option value="<?php echo $truck['id']; ?>"><?php echo $truck['plate_number'] . ' - ' . $truck['model']; ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <input type="text" name="maintenance_type" placeholder="Maintenance Type" required class="w-full px-3 py-2 border rounded-lg">
-                <textarea name="description" placeholder="Description" rows="3" class="w-full px-3 py-2 border rounded-lg"></textarea>
-                <input type="number" step="0.01" name="cost" placeholder="Cost ($)" class="w-full px-3 py-2 border rounded-lg">
-                <input type="date" name="maintenance_date" required class="w-full px-3 py-2 border rounded-lg">
-                <input type="date" name="next_due_date" class="w-full px-3 py-2 border rounded-lg">
-                <input type="number" name="odometer_at_service" placeholder="Odometer at Service (km)" class="w-full px-3 py-2 border rounded-lg">
-                <input type="text" name="performed_by" placeholder="Performed By" class="w-full px-3 py-2 border rounded-lg">
-                <select name="status" class="w-full px-3 py-2 border rounded-lg">
-                    <option value="scheduled">Scheduled</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-                <textarea name="notes" placeholder="Additional Notes" rows="2" class="w-full px-3 py-2 border rounded-lg"></textarea>
+<!-- Maintenance Detail Modal -->
+<div id="maintenanceModal" class="modal">
+    <div class="modal-content">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Maintenance Details</h3>
+                <button onclick="closeModal('maintenanceModal')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
             </div>
-            <div class="flex justify-end gap-2 mt-6">
-                <button type="button" onclick="closeModal('addMaintenanceModal')" class="px-4 py-2 border rounded-lg">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Save</button>
+            <div id="maintenanceDetailContent"></div>
+            <div class="flex justify-end mt-6">
+                <button onclick="closeModal('maintenanceModal')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Close</button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
-<!-- Add Incident Modal -->
-<div id="addIncidentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 class="text-lg font-semibold mb-4">Report Incident</h3>
-        <form method="POST" action="incident_process.php">
-            <div class="space-y-4">
-                <select name="truck_id" required class="w-full px-3 py-2 border rounded-lg">
-                    <option value="">Select Truck</option>
-                    <?php foreach($trucks as $truck): ?>
-                    <option value="<?php echo $truck['id']; ?>"><?php echo $truck['plate_number']; ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <input type="text" name="incident_number" placeholder="Incident Number" required class="w-full px-3 py-2 border rounded-lg">
-                <input type="datetime-local" name="incident_date" required class="w-full px-3 py-2 border rounded-lg">
-                <input type="text" name="location" placeholder="Location" required class="w-full px-3 py-2 border rounded-lg">
-                <textarea name="description" placeholder="Incident Description" rows="3" required class="w-full px-3 py-2 border rounded-lg"></textarea>
-                <select name="severity" class="w-full px-3 py-2 border rounded-lg">
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                </select>
-                <input type="number" step="0.01" name="cost_impact" placeholder="Cost Impact ($)" class="w-full px-3 py-2 border rounded-lg">
+<!-- Incident Detail Modal -->
+<div id="incidentModal" class="modal">
+    <div class="modal-content">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Incident Details</h3>
+                <button onclick="closeModal('incidentModal')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
             </div>
-            <div class="flex justify-end gap-2 mt-6">
-                <button type="button" onclick="closeModal('addIncidentModal')" class="px-4 py-2 border rounded-lg">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg">Report Incident</button>
+            <div id="incidentDetailContent"></div>
+            <div class="flex justify-end mt-6">
+                <button onclick="closeModal('incidentModal')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Close</button>
             </div>
-        </form>
+        </div>
+    </div>
+</div>
+
+<!-- Report Detail Modal -->
+<div id="reportModal" class="modal">
+    <div class="modal-content">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Driver Report Details</h3>
+                <button onclick="closeModal('reportModal')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div id="reportDetailContent"></div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeModal('reportModal')" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Close</button>
+                <button onclick="markResolvedFromModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Mark Resolved</button>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
+let currentReportId = null;
+
 function showTab(tab) {
     if(tab === 'maintenance') {
         document.getElementById('maintenanceTab').classList.remove('hidden');
         document.getElementById('incidentsTab').classList.add('hidden');
+        document.getElementById('reportsTab').classList.add('hidden');
         document.getElementById('tabMaintenanceBtn').classList.add('border-blue-600', 'text-blue-600');
         document.getElementById('tabIncidentsBtn').classList.remove('border-blue-600', 'text-blue-600');
-        document.getElementById('tabIncidentsBtn').classList.add('border-transparent');
-    } else {
+        document.getElementById('tabReportsBtn').classList.remove('border-blue-600', 'text-blue-600');
+    } else if(tab === 'incidents') {
         document.getElementById('maintenanceTab').classList.add('hidden');
         document.getElementById('incidentsTab').classList.remove('hidden');
+        document.getElementById('reportsTab').classList.add('hidden');
         document.getElementById('tabIncidentsBtn').classList.add('border-blue-600', 'text-blue-600');
         document.getElementById('tabMaintenanceBtn').classList.remove('border-blue-600', 'text-blue-600');
-        document.getElementById('tabMaintenanceBtn').classList.add('border-transparent');
+        document.getElementById('tabReportsBtn').classList.remove('border-blue-600', 'text-blue-600');
+    } else {
+        document.getElementById('maintenanceTab').classList.add('hidden');
+        document.getElementById('incidentsTab').classList.add('hidden');
+        document.getElementById('reportsTab').classList.remove('hidden');
+        document.getElementById('tabReportsBtn').classList.add('border-blue-600', 'text-blue-600');
+        document.getElementById('tabMaintenanceBtn').classList.remove('border-blue-600', 'text-blue-600');
+        document.getElementById('tabIncidentsBtn').classList.remove('border-blue-600', 'text-blue-600');
     }
 }
 
-function openModal(id) {
-    document.getElementById(id).classList.remove('hidden');
-    document.getElementById(id).classList.add('flex');
+function showMaintenanceDetail(maintenance) {
+    const content = `
+        <div class="detail-row">
+            <div class="detail-label">ID:</div>
+            <div class="detail-value">#${maintenance.id}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Truck:</div>
+            <div class="detail-value">${maintenance.truck_plate} (${maintenance.truck_model || 'N/A'})</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Maintenance Type:</div>
+            <div class="detail-value">${maintenance.maintenance_type}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Description:</div>
+            <div class="detail-value">${maintenance.description || 'No description'}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Cost:</div>
+            <div class="detail-value">$${parseFloat(maintenance.cost).toFixed(2)}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Maintenance Date:</div>
+            <div class="detail-value">${maintenance.maintenance_date}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Next Due Date:</div>
+            <div class="detail-value">${maintenance.next_due_date || 'Not set'}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Status:</div>
+            <div class="detail-value"><span class="status-badge status-${maintenance.status}">${maintenance.status.replace('_', ' ')}</span></div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Performed By:</div>
+            <div class="detail-value">${maintenance.performed_by || 'Not assigned'}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Notes:</div>
+            <div class="detail-value">${maintenance.notes || 'No notes'}</div>
+        </div>
+    `;
+    document.getElementById('maintenanceDetailContent').innerHTML = content;
+    document.getElementById('maintenanceModal').style.display = 'flex';
 }
 
-function closeModal(id) {
-    document.getElementById(id).classList.add('hidden');
-    document.getElementById(id).classList.remove('flex');
+function showIncidentDetail(incident) {
+    const severityColors = {
+        low: 'severity-low',
+        medium: 'severity-medium',
+        high: 'severity-high',
+        critical: 'severity-critical'
+    };
+    const content = `
+        <div class="detail-row">
+            <div class="detail-label">Incident #:</div>
+            <div class="detail-value">${incident.incident_number}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Truck:</div>
+            <div class="detail-value">${incident.truck_plate}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Driver:</div>
+            <div class="detail-value">${incident.driver_name || 'Unknown'}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Location:</div>
+            <div class="detail-value">${incident.location || 'Not specified'}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Severity:</div>
+            <div class="detail-value"><span class="status-badge ${severityColors[incident.severity]}">${incident.severity.toUpperCase()}</span></div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Description:</div>
+            <div class="detail-value">${incident.description}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Incident Date:</div>
+            <div class="detail-value">${new Date(incident.incident_date).toLocaleString()}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Reported By:</div>
+            <div class="detail-value">${incident.reported_by_name || 'System'}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Resolution Notes:</div>
+            <div class="detail-value">${incident.resolution_notes || 'Not resolved yet'}</div>
+        </div>
+    `;
+    document.getElementById('incidentDetailContent').innerHTML = content;
+    document.getElementById('incidentModal').style.display = 'flex';
 }
 
-function editMaintenance(item) {
-    alert('Edit maintenance record for truck: ' + item.truck_plate);
+function showReportDetail(report) {
+    currentReportId = report.id;
+    const content = `
+        <div class="detail-row">
+            <div class="detail-label">Report ID:</div>
+            <div class="detail-value">#${report.id}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Driver:</div>
+            <div class="detail-value">${report.driver_name}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Truck:</div>
+            <div class="detail-value">${report.truck_plate}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Report Date:</div>
+            <div class="detail-value">${new Date(report.created_at).toLocaleString()}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Description:</div>
+            <div class="detail-value">${report.description}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Status:</div>
+            <div class="detail-value"><span class="status-badge status-scheduled">Pending Review</span></div>
+        </div>
+    `;
+    document.getElementById('reportDetailContent').innerHTML = content;
+    document.getElementById('reportModal').style.display = 'flex';
 }
 
-function deleteMaintenance(id) {
-    if(confirm('Are you sure you want to delete this maintenance record?')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="${id}">`;
-        document.body.appendChild(form);
-        form.submit();
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function markResolvedFromModal() {
+    if(confirm('Mark this report as resolved?')) {
+        fetch('../api/resolve_incident.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ incident_id: currentReportId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert('Report marked as resolved');
+                closeModal('reportModal');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
     }
 }
 </script>
