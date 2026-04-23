@@ -1,23 +1,12 @@
 <?php
-require_once '../config/session.php';
-require_once '../config/database.php';
+// pages/trips.php - Cleaned up version
+require_once '../includes/check_auth.php';
 require_once '../models/Trip.php';
 require_once '../models/Truck.php';
 require_once '../models/Driver.php';
 require_once '../models/Route.php';
 
-$database = new Database();
-$db = $database->getConnection();
-
-if(!isset($_SESSION['user_id'])) {
-    header("Location: ../signin.php");
-    exit();
-}
-if($_SESSION['user_role'] == "driver"){
-    header("Location: ../signin.php");
-    exit();
-}
-
+// $db is already available from check_auth.php
 $tripModel = new Trip($db);
 $truckModel = new Truck($db);
 $driverModel = new Driver($db);
@@ -54,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Get all data (now automatically filtered by company_id in models)
 $trips = $tripModel->getAll();
 $trucks = $truckModel->getAll();
 $drivers = $driverModel->getAll();
