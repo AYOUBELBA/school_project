@@ -369,9 +369,29 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
 
 <script>
 function copyInviteLink(token) {
-    const inviteLink = `<?php echo "http://" . $_SERVER['HTTP_HOST'] . "/school_project/register_invite.php?token="; ?>${token}`;
-    navigator.clipboard.writeText(inviteLink);
-    alert('Invite link copied! Share it with the user.');
+    const inviteLink = window.location.origin + '/school_project/register_invite.php?token=' + token;
+    
+    // Modern way to copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(inviteLink).then(function() {
+            alert('Invite link copied! Share it with the user.\n\n' + inviteLink);
+        }).catch(function() {
+            // Fallback
+            copyFallback(inviteLink);
+        });
+    } else {
+        // Fallback for older browsers
+        copyFallback(inviteLink);
+    }
+}
+
+function copyFallback(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
 }
 </script>
 </body>
