@@ -155,7 +155,7 @@ if($days_left < 0) {
                 <a href="driver_dashboard.php" class="text-gray-600 hover:text-blue-600 transition">
                     <i class="ri-dashboard-line text-xl"></i>
                 </a>
-                <a href="../config/config/logout.php" class="text-gray-400 hover:text-red-500">
+                <a href="../config/logout.php" class="text-gray-400 hover:text-red-500">
                     <i class="ri-logout-box-r-line text-xl"></i>
                 </a>
             </div>

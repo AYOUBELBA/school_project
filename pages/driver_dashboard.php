@@ -112,7 +112,7 @@ $notifCount = count($notifications);
                     </div>
                     <span class="text-sm font-medium text-gray-700"><?php echo htmlspecialchars($username); ?></span>
                 </div>
-                <a href="../config/config/logout.php" class="text-gray-400 hover:text-red-500">
+                <a href="../config/logout.php" class="text-gray-400 hover:text-red-500">
                     <i class="ri-logout-box-r-line text-xl"></i>
                 </a>
             </div>

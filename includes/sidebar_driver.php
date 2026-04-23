@@ -39,7 +39,7 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? 'driver';
                 <p class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars($_SESSION['username'] ?? 'Driver'); ?></p>
                 <p class="text-xs text-gray-500 capitalize"><?php echo $role; ?></p>
             </div>
-            <a href="../config/config/logout.php" class="text-gray-400 hover:text-red-500">
+            <a href="../config/logout.php" class="text-gray-400 hover:text-red-500">
                 <i class="ri-logout-box-r-line text-xl"></i>
             </a>
         </div>
