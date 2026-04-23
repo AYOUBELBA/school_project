@@ -1,53 +1,29 @@
 <?php
-require_once('../config/session.php');
-require_once '../config/database.php';
-require_once '../config/auth.php';
+// pages/dashboard.php
+require_once '../includes/check_auth.php';
+
+// Now $db, $auth, $database are already available
 require_once '../models/Truck.php';
 require_once '../models/Driver.php';
 require_once '../models/Trip.php';
-require_once '../models/Maintenance.php';
-
-
-
-// Check if session is already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Check if user is logged in
-if(!isset($_SESSION['user_id'])) {
-    header("Location: ../signin.php");
-    exit();
-}
-
-// Get user info from session
-$user_id = $_SESSION['user_id'];
-$user_email = $_SESSION['user_email'];
-$username = $_SESSION['username'];
-$role = $_SESSION['user_role'];
-
-if($role == "driver"){
-    header("Location: ../signin.php");
-    exit();
-}
-
-
-$database = new Database();
-$db = $database->getConnection();
-$auth = new Auth($db);
-
-$auth->requireLogin();
 
 $truckModel = new Truck($db);
 $driverModel = new Driver($db);
 $tripModel = new Trip($db);
-$maintenanceModel = new Maintenance($db);
+
+// Get user info from session
+$user_id = $_SESSION['user_id'];
+$user_email = $_SESSION['user_email'] ?? $_SESSION['username'] ?? '';
+$user_role = $_SESSION['user_role'] ?? $_SESSION['role'] ?? '';
+$company_id = $_SESSION['company_id'] ?? null;
 
 // Get all stats
 $truckStats = $truckModel->getStats();
 $driverStats = $driverModel->getStats();
 $tripStats = $tripModel->getStats();
 $activeTrips = $tripModel->getActiveTrips();
+
+// Get expiring licenses
 try {
     $expiringLicenses = $driverModel->getExpiringLicenses(30);
 } catch (Exception $e) {
