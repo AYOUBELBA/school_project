@@ -4,8 +4,20 @@ class Notification {
     private $table = "notifications";
     
     public function __construct($db) {
-        $this->conn = $db;
+    $this->conn = $db;
+    // Ensure company_id is in session
+    if(isset($_SESSION['user_id']) && !isset($_SESSION['company_id'])) {
+        // Try to fetch it
+        $sql = "SELECT company_id FROM users WHERE id = :user_id";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':user_id', $_SESSION['user_id']);
+        $stmt->execute();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if($user) {
+            $_SESSION['company_id'] = $user['company_id'];
+        }
     }
+}
     
     public function getAll($userId) {
         $query = "SELECT * FROM " . $this->table . "
