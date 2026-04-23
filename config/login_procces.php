@@ -61,9 +61,11 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
                 $_SESSION['user_email'] = $user['email'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['user_role'] = $user['role'];
-                $_SESSION['role'] = $user['role'];  // ADD THIS LINE for consistency
+                $_SESSION['role'] = $user['role'];
                 $_SESSION['last_login'] = $user['last_login'];
                 $_SESSION['login_time'] = time();
+                $_SESSION['company_id'] = $user['company_id'];
+                $_SESSION['company_name'] = $user['company_name'];
                 
                 // Redirect based on role
                 if ($user['role'] == 'driver') {
