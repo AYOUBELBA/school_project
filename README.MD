@@ -40,7 +40,7 @@ FleetManager is a comprehensive fleet management solution that helps transportat
 
 ## 🚀 Quick Start
 ```bash
-git clone https://github.com/yourusername/fleet-manager.git
+git clone https://github.com/AYOUBELBA/fleet-manager.git
 cd fleet-manager
 php -S localhost:8000
 ```
@@ -65,7 +65,7 @@ Endpoints available under /api/
 Check logs and configuration if issues occur.
 
 ## 📞 Support
-Contact: support@fleetmanager.com
+Contact: ayoubelbadri26@gmail.com
 
 ---
-Built with ❤️ | Version 2.0.0
+Made By Ayoub El Badri | Version 1.0.0
