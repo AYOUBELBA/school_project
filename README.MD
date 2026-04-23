@@ -106,12 +106,12 @@ A complete multi-tenant SaaS platform for truck fleet management with web dashbo
 
 ## 🏗 System Architecture
 ┌─────────────────────────────────────────────────────────────┐
-│ Clients │
+│ Clients                                                     │
 ├──────────────┬───────────────┬──────────────────────────────┤
-│ Web Admin │ Web Manager │ Driver Mobile App │
+│ Web Admin    │ Web Manager   │ Driver Mobile App            │
 └──────┬───────┴───────┬───────┴──────────┬───────────────────┘
-│ │ │
-▼ ▼ ▼
+       │               │                  │
+       ▼               ▼                  ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ PHP API Layer │
 │ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ │
