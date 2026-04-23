@@ -1,55 +1,41 @@
 <?php
-require_once '../config/session.php';
-require_once '../config/database.php';
-require_once '../models/FuelRecord.php';
-require_once '../models/Truck.php';
+require_once '../includes/check_auth.php';
 
-$database = new Database();
-$db = $database->getConnection();
+$company_id = $_SESSION['company_id'] ?? 0;
 
-if(!isset($_SESSION['user_id'])) {
-    header("Location: ../signin.php");
-    exit();
-}
-if($_SESSION['user_role'] == "driver"){
-    header("Location: ../signin.php");
-    exit();
-}
+// Get fuel records ONLY for trucks in this company
+$fuelSql = "SELECT f.*, t.plate_number as truck_plate
+            FROM fuel_records f
+            INNER JOIN trucks t ON f.truck_id = t.id
+            WHERE t.company_id = :company_id
+            ORDER BY f.fuel_date DESC, f.fuel_time DESC";
+$fuelStmt = $db->prepare($fuelSql);
+$fuelStmt->bindParam(':company_id', $company_id);
+$fuelStmt->execute();
+$fuelRecords = $fuelStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Get fuel stats for this company
+$statsSql = "SELECT 
+                SUM(f.liters) as total_liters,
+                SUM(f.total_cost) as total_cost,
+                AVG(f.cost_per_liter) as avg_cost
+             FROM fuel_records f
+             INNER JOIN trucks t ON f.truck_id = t.id
+             WHERE t.company_id = :company_id
+             AND f.fuel_date >= DATE_TRUNC('month', CURRENT_DATE)";
+$statsStmt = $db->prepare($statsSql);
+$statsStmt->bindParam(':company_id', $company_id);
+$statsStmt->execute();
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
 
-$fuelModel = new FuelRecord($db);
-$truckModel = new Truck($db);
-
-// Handle CRUD operations
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
-            case 'create':
-                $data = [
-                    'truck_id' => $_POST['truck_id'],
-                    'liters' => $_POST['liters'],
-                    'cost_per_liter' => !empty($_POST['cost_per_liter']) ? $_POST['cost_per_liter'] : null,
-                    'total_cost' => !empty($_POST['total_cost']) ? $_POST['total_cost'] : ($_POST['liters'] * ($_POST['cost_per_liter'] ?? 0)),
-                    'odometer_km' => !empty($_POST['odometer_km']) ? $_POST['odometer_km'] : null,
-                    'fuel_station' => $_POST['fuel_station'],
-                    'fuel_date' => $_POST['fuel_date'],
-                    'fuel_time' => $_POST['fuel_time'],
-                    'created_by' => $_SESSION['user_id']
-                ];
-                $fuelModel->create($data);
-                break;
-            case 'delete':
-                $fuelModel->delete($_POST['id']);
-                break;
-        }
-        header("Location: fuel.php");
-        exit();
-    }
-}
-
-$fuelRecords = $fuelModel->getAll();
-$trucks = $truckModel->getAll();
-$stats = $fuelModel->getStats();
+// Get trucks for this company for dropdown
+$truckSql = "SELECT id, plate_number FROM trucks 
+             WHERE status = 'active' AND company_id = :company_id 
+             ORDER BY plate_number";
+$truckStmt = $db->prepare($truckSql);
+$truckStmt->bindParam(':company_id', $company_id);
+$truckStmt->execute();
+$trucks = $truckStmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
