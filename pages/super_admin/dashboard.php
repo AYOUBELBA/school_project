@@ -1,7 +1,6 @@
 <?php
 require_once '../../includes/check_auth.php';
 
-// Only super admin can access
 if($_SESSION['user_role'] !== 'super_admin') {
     header("Location: ../dashboard.php");
     exit();
@@ -14,17 +13,26 @@ $statsSql = "SELECT
              (SELECT COUNT(*) FROM trucks) as total_trucks,
              (SELECT COUNT(*) FROM drivers) as total_drivers,
              (SELECT COUNT(*) FROM trips WHERE status = 'ongoing') as active_trips,
-             (SELECT COUNT(*) FROM trips WHERE status = 'completed') as completed_trips";
+             (SELECT COUNT(*) FROM trips WHERE status = 'completed') as completed_trips,
+             (SELECT COUNT(*) FROM users WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)) as new_users_month,
+             (SELECT COUNT(*) FROM companies WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)) as new_companies_month";
 $statsStmt = $db->prepare($statsSql);
 $statsStmt->execute();
 $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
 
+// Get subscription distribution
+$planSql = "SELECT subscription_plan, COUNT(*) as count FROM companies GROUP BY subscription_plan";
+$planStmt = $db->prepare($planSql);
+$planStmt->execute();
+$plans = $planStmt->fetchAll(PDO::FETCH_ASSOC);
+
 // Get recent activity
-$activitySql = "SELECT al.*, u.username 
+$activitySql = "SELECT al.*, u.username, c.name as company_name
                 FROM activity_logs al
                 LEFT JOIN users u ON al.user_id = u.id
+                LEFT JOIN companies c ON u.company_id = c.id
                 ORDER BY al.created_at DESC 
-                LIMIT 10";
+                LIMIT 15";
 $activityStmt = $db->prepare($activitySql);
 $activityStmt->execute();
 $activities = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -52,29 +60,31 @@ $activities = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
     
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
             <div class="flex justify-between items-start">
                 <div>
                     <p class="text-gray-500 text-sm">Total Companies</p>
                     <h3 class="text-2xl font-bold text-gray-800 mt-2"><?php echo $stats['total_companies']; ?></h3>
+                    <p class="text-green-600 text-xs mt-2">+<?php echo $stats['new_companies_month']; ?> this month</p>
                 </div>
                 <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                     <i class="ri-building-line text-blue-600 text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
             <div class="flex justify-between items-start">
                 <div>
                     <p class="text-gray-500 text-sm">Total Users</p>
                     <h3 class="text-2xl font-bold text-gray-800 mt-2"><?php echo $stats['total_users']; ?></h3>
+                    <p class="text-green-600 text-xs mt-2">+<?php echo $stats['new_users_month']; ?> this month</p>
                 </div>
                 <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                     <i class="ri-user-line text-green-600 text-2xl"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
             <div class="flex justify-between items-start">
                 <div>
                     <p class="text-gray-500 text-sm">Active Trucks</p>
@@ -85,24 +95,24 @@ $activities = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition">
             <div class="flex justify-between items-start">
                 <div>
-                    <p class="text-gray-500 text-sm">Active Drivers</p>
-                    <h3 class="text-2xl font-bold text-gray-800 mt-2"><?php echo $stats['total_drivers']; ?></h3>
+                    <p class="text-gray-500 text-sm">Active Trips</p>
+                    <h3 class="text-2xl font-bold text-gray-800 mt-2"><?php echo $stats['active_trips']; ?></h3>
                 </div>
                 <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <i class="ri-driver-line text-purple-600 text-2xl"></i>
+                    <i class="ri-map-pin-line text-purple-600 text-2xl"></i>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- Charts -->
+    <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div class="bg-white rounded-xl p-6 shadow-sm">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">System Overview</h3>
-            <canvas id="systemChart" height="200"></canvas>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Subscription Distribution</h3>
+            <canvas id="planChart" height="200"></canvas>
         </div>
         <div class="bg-white rounded-xl p-6 shadow-sm">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
@@ -114,30 +124,50 @@ $activities = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                     <div class="flex-1">
                         <p class="text-sm text-gray-800"><?php echo htmlspecialchars($activity['action']); ?></p>
-                        <p class="text-xs text-gray-400"><?php echo date('Y-m-d H:i', strtotime($activity['created_at'])); ?> by <?php echo htmlspecialchars($activity['username'] ?? 'System'); ?></p>
+                        <p class="text-xs text-gray-400">
+                            <?php echo htmlspecialchars($activity['username'] ?? 'System'); ?> 
+                            <?php echo $activity['company_name'] ? '(' . htmlspecialchars($activity['company_name']) . ')' : ''; ?>
+                            • <?php echo date('M d, H:i', strtotime($activity['created_at'])); ?>
+                        </p>
                     </div>
                 </div>
                 <?php endforeach; ?>
             </div>
         </div>
     </div>
+    
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <a href="companies.php" class="bg-blue-50 rounded-xl p-4 hover:bg-blue-100 transition text-center">
+            <i class="ri-building-line text-2xl text-blue-600 mb-2 block"></i>
+            <span class="text-blue-700 font-medium">Manage Companies</span>
+        </a>
+        <a href="users.php" class="bg-green-50 rounded-xl p-4 hover:bg-green-100 transition text-center">
+            <i class="ri-user-settings-line text-2xl text-green-600 mb-2 block"></i>
+            <span class="text-green-700 font-medium">Manage Users</span>
+        </a>
+        <a href="activity_logs.php" class="bg-purple-50 rounded-xl p-4 hover:bg-purple-100 transition text-center">
+            <i class="ri-history-line text-2xl text-purple-600 mb-2 block"></i>
+            <span class="text-purple-700 font-medium">Activity Logs</span>
+        </a>
+        <a href="system_settings.php" class="bg-orange-50 rounded-xl p-4 hover:bg-orange-100 transition text-center">
+            <i class="ri-settings-4-line text-2xl text-orange-600 mb-2 block"></i>
+            <span class="text-orange-700 font-medium">System Settings</span>
+        </a>
+    </div>
 </main>
 
 <script>
-const ctx = document.getElementById('systemChart').getContext('2d');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: ['Companies', 'Users', 'Trucks', 'Drivers'],
-        datasets: [{
-            label: 'Count',
-            data: [<?php echo $stats['total_companies']; ?>, <?php echo $stats['total_users']; ?>, <?php echo $stats['total_trucks']; ?>, <?php echo $stats['total_drivers']; ?>],
-            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
-            borderRadius: 8
-        }]
-    },
-    options: { responsive: true, maintainAspectRatio: true }
-});
+const planCtx = document.getElementById('planChart').getContext('2d');
+const planData = {
+    labels: [<?php echo "'" . implode("','", array_column($plans, 'subscription_plan')) . "'"; ?>],
+    datasets: [{
+        data: [<?php echo implode(",", array_column($plans, 'count')); ?>],
+        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+        borderWidth: 0
+    }]
+};
+new Chart(planCtx, { type: 'doughnut', data: planData, options: { responsive: true, plugins: { legend: { position: 'bottom' } } } });
 </script>
 </body>
 </html>
