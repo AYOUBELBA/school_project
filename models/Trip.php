@@ -4,10 +4,23 @@ class Trip {
     private $table = "trips";
     
     public function __construct($db) {
-        $this->conn = $db;
+    $this->conn = $db;
+    // Ensure company_id is in session
+    if(isset($_SESSION['user_id']) && !isset($_SESSION['company_id'])) {
+        // Try to fetch it
+        $sql = "SELECT company_id FROM users WHERE id = :user_id";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':user_id', $_SESSION['user_id']);
+        $stmt->execute();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if($user) {
+            $_SESSION['company_id'] = $user['company_id'];
+        }
     }
+}
     
     public function getAll() {
+        $company_id = $_SESSION['company_id'];
         $query = "SELECT t.*, 
                   tr.plate_number as truck_plate, tr.model as truck_model,
                   d.full_name as driver_name,
@@ -16,13 +29,16 @@ class Trip {
                   LEFT JOIN trucks tr ON t.truck_id = tr.id
                   LEFT JOIN drivers d ON t.driver_id = d.id
                   LEFT JOIN routes r ON t.route_id = r.id
+                  WHERE t.company_id = :company_id
                   ORDER BY t.created_at DESC";
         $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':company_id', $company_id);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     public function getActiveTrips() {
+        $company_id = $_SESSION['company_id'];
         $query = "SELECT t.*, 
                   tr.plate_number as truck_plate,
                   d.full_name as driver_name,
@@ -31,27 +47,32 @@ class Trip {
                   LEFT JOIN trucks tr ON t.truck_id = tr.id
                   LEFT JOIN drivers d ON t.driver_id = d.id
                   LEFT JOIN routes r ON t.route_id = r.id
-                  WHERE t.status IN ('planned', 'ongoing')
+                  WHERE t.company_id = :company_id
+                  AND t.status IN ('planned', 'ongoing')
                   ORDER BY t.start_time ASC";
         $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':company_id', $company_id);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     public function getById($id) {
-        $query = "SELECT * FROM " . $this->table . " WHERE id = :id";
+        $company_id = $_SESSION['company_id'];
+        $query = "SELECT * FROM " . $this->table . " WHERE id = :id AND company_id = :company_id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->bindParam(':company_id', $company_id);
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
     public function create($data) {
+        $company_id = $_SESSION['company_id'];
         $query = "INSERT INTO " . $this->table . "
                   (trip_number, truck_id, driver_id, route_id, client_name, client_phone,
-                   start_location, end_location, start_time, status, priority, notes, created_by)
+                   start_location, end_location, start_time, status, priority, notes, created_by, company_id)
                   VALUES (:trip_number, :truck_id, :driver_id, :route_id, :client_name, :client_phone,
-                          :start_location, :end_location, :start_time, :status, :priority, :notes, :created_by)
+                          :start_location, :end_location, :start_time, :status, :priority, :notes, :created_by, :company_id)
                   RETURNING id";
         
         $stmt = $this->conn->prepare($query);
@@ -68,6 +89,7 @@ class Trip {
         $stmt->bindParam(':priority', $data['priority']);
         $stmt->bindParam(':notes', $data['notes']);
         $stmt->bindParam(':created_by', $data['created_by']);
+        $stmt->bindParam(':company_id', $company_id);
         
         if($stmt->execute()) {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -77,33 +99,39 @@ class Trip {
     }
     
     public function updateStatus($id, $status) {
-        $query = "UPDATE " . $this->table . " SET status = :status WHERE id = :id";
+        $company_id = $_SESSION['company_id'];
+        $query = "UPDATE " . $this->table . " SET status = :status WHERE id = :id AND company_id = :company_id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':status', $status);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->bindParam(':company_id', $company_id);
         return $stmt->execute();
     }
     
     public function getStats() {
+        $company_id = $_SESSION['company_id'];
         $query = "SELECT 
                     COUNT(*) as total,
                     COUNT(CASE WHEN status = 'planned' THEN 1 END) as planned,
                     COUNT(CASE WHEN status = 'ongoing' THEN 1 END) as ongoing,
                     COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed
-                  FROM " . $this->table;
+                  FROM " . $this->table . "
+                  WHERE company_id = :company_id";
         $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':company_id', $company_id);
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
     public function generateTripNumber() {
-        // Fixed PostgreSQL compatible version
+        $company_id = $_SESSION['company_id'];
         $query = "SELECT COALESCE(
                     (SELECT MAX(CAST(SUBSTRING(trip_number FROM 4) AS INTEGER)) 
                      FROM " . $this->table . " 
-                     WHERE trip_number ~ '^TR-[0-9]+$'), 
+                     WHERE trip_number ~ '^TR-[0-9]+$' AND company_id = :company_id), 
                     0) as max_num";
         $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':company_id', $company_id);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $nextNum = $result['max_num'] + 1;
