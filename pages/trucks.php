@@ -3,7 +3,7 @@ require_once '../config/session.php';
 require_once '../config/database.php';
 require_once '../models/Truck.php';
 require_once '../models/Driver.php';
-
+require_once '../includes/check_auth.php';
 $database = new Database();
 $db = $database->getConnection();
 
