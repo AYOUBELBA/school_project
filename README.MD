@@ -68,4 +68,4 @@ Check logs and configuration if issues occur.
 Contact: ayoubelbadri26@gmail.com
 
 ---
-Made By Ayoub El Badri | Version 1.0.0
+Made By Ayoub El Badri
