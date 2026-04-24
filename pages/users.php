@@ -13,7 +13,7 @@ if(!isset($_SESSION['user_id'])) {
 
 // Check if user is admin
 $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
-if($role !== 'admin') {
+if($role !== 'super_admin') {
     header("Location: dashboard.php");
     exit();
 }

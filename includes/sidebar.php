@@ -104,6 +104,14 @@ $username = $_SESSION['username'] ?? 'User';
                 <span class="font-medium">Team Members</span>
             </a>
             <?php endif; ?>
+
+            <!-- USER MANAGEMENT-->
+            <?php if($role === 'super_admin'): ?>
+            <a href="users.php" class="sidebar-item <?php echo $current_page == 'users.php' ? 'active' : ''; ?> flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700">
+                <i class="ri-team-line text-xl"></i>
+                <span class="font-medium">Users Manager</span>
+            </a>
+            <?php endif; ?>
             
             <!-- Company Settings - Only Owner -->
             <?php if($role === 'owner'): ?>
