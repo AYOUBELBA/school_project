@@ -22,7 +22,6 @@ CREATE TABLE companies (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
 );
-
 -- ============================================
 -- 2. USERS TABLE (Authentication & Roles)
 -- ============================================
@@ -38,7 +37,6 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- ============================================
 -- 3. DRIVERS TABLE
 -- ============================================
@@ -56,7 +54,6 @@ CREATE TABLE drivers (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- ============================================
 -- 4. TRUCKS TABLE
 -- ============================================
@@ -79,7 +76,6 @@ CREATE TABLE trucks (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- ============================================
 -- 5. ROUTES TABLE
 -- ============================================
@@ -99,7 +95,6 @@ CREATE TABLE routes (
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- ============================================
 -- 6. TRIPS TABLE
 -- ============================================
@@ -123,7 +118,6 @@ CREATE TABLE trips (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- ============================================
 -- 7. SHIPMENTS/CARGO TABLE
 -- ============================================
@@ -158,7 +152,6 @@ CREATE TABLE truck_locations (
     accuracy_m INTEGER,
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- ============================================
 -- 9. SCHEDULES (Future planned trips)
 -- ============================================
@@ -175,7 +168,6 @@ CREATE TABLE schedules (
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- ============================================
 -- 10. TRUCK MAINTENANCE
 -- ============================================
@@ -195,7 +187,6 @@ CREATE TABLE truck_maintenance (
     location_lng DECIMAL(11,8),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- ============================================
 -- 11. INCIDENTS/ACCIDENTS
 -- ============================================
@@ -277,7 +268,6 @@ CREATE TABLE invitations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
-
 -- ============================================
 -- INDEXES for Performance
 -- ============================================
