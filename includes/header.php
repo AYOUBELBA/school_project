@@ -55,7 +55,7 @@ $role = $_SESSION['user_role'] ?? $_SESSION['role'] ?? '';
                         </a>
                         <div class="border-t my-1"></div>
                         <?php endif; ?>
-                        <a href="users.php" class="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                        <a href="../pages/team_members.php" class="flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">
                             <i class="ri-user-settings-line text-green-600"></i>
                             <span>Team Members</span>
                         </a>
@@ -75,7 +75,7 @@ $role = $_SESSION['user_role'] ?? $_SESSION['role'] ?? '';
                     <span id="notificationBadge" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center hidden">0</span>
                 </button>
                 <div id="notificationsDropdown" class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50">
-                    <div class="p-3 border-b border-gray-200">Notifications</div>
+                    <div class="p-3 border-b border-gray-200"><button><a href="../pages/notifications.php">Notifications</a></button> </div>
                     <div id="notificationsList" class="max-h-96 overflow-y-auto"></div>
                 </div>
             </div>
