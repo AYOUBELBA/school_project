@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   Modal,
   TextInput as TextInputRN,
+  Switch,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -98,7 +99,28 @@ function DashboardScreen({ onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [locationStatus, setLocationStatus] = useState('Waiting for GPS...');
   const [loading, setLoading] = useState(true);
+  const [trackingInitialized, setTrackingInitialized] = useState(false);
   
+  // Simulation states
+  const [simulationMode, setSimulationMode] = useState(false);
+  const [simulationSpeed, setSimulationSpeed] = useState('30'); // km/h
+  const [currentWaypointIndex, setCurrentWaypointIndex] = useState(0);
+  const simulationInterval = useRef(null);
+  const watchPositionSubscription = useRef(null);
+  
+  // Predefined route for simulation (example: around a city block)
+  const simulationRoute = useRef([
+    { latitude: 40.7128, longitude: -74.0060, name: "Start Point" },
+    { latitude: 40.7135, longitude: -74.0075, name: "Street 1" },
+    { latitude: 40.7142, longitude: -74.0090, name: "Intersection A" },
+    { latitude: 40.7138, longitude: -74.0105, name: "Street 2" },
+    { latitude: 40.7125, longitude: -74.0110, name: "Park Area" },
+    { latitude: 40.7115, longitude: -74.0095, name: "Street 3" },
+    { latitude: 40.7110, longitude: -74.0080, name: "Intersection B" },
+    { latitude: 40.7118, longitude: -74.0065, name: "Street 4" },
+    { latitude: 40.7128, longitude: -74.0060, name: "End Point" }
+  ]);
+
   // Modal states
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [maintenanceModalVisible, setMaintenanceModalVisible] = useState(false);
@@ -119,7 +141,17 @@ function DashboardScreen({ onLogout }) {
   useEffect(() => {
     loadUserData();
     loadCurrentTrip();
-    startTracking();
+    
+    // Don't auto-start tracking - let the user decide
+    // Cleanup on unmount
+    return () => {
+      if (simulationInterval.current) {
+        clearInterval(simulationInterval.current);
+      }
+      if (watchPositionSubscription.current) {
+        watchPositionSubscription.current.remove();
+      }
+    };
   }, []);
 
   const loadUserData = async () => {
@@ -143,6 +175,7 @@ function DashboardScreen({ onLogout }) {
       console.error('Error loading user data:', error);
     } finally {
       setLoading(false);
+      setTrackingInitialized(true);
     }
   };
 
@@ -161,17 +194,38 @@ function DashboardScreen({ onLogout }) {
     }
   };
 
-  const startTracking = async () => {
+  // Function to send location to server
+  const sendLocationToServer = async (latitude, longitude, speed) => {
+    const tId = await AsyncStorage.getItem('truckId');
+    if (tId && tId !== '0') {
+      fetch(`${API_URL}/api/update_location.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          truck_id: parseInt(tId),
+          latitude,
+          longitude,
+          speed: speed,
+          accuracy: 10,
+          is_simulated: simulationMode
+        })
+      }).catch(err => console.error('Send error:', err));
+    }
+  };
+
+  // Real GPS tracking
+  const startRealTracking = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setLocationStatus('❌ Location permission denied');
+        Alert.alert('Permission Denied', 'Please enable location permissions to use GPS tracking');
         return;
       }
       
-      setLocationStatus('📍 Tracking active...');
+      setLocationStatus('📍 Tracking active (Real GPS)...');
       
-      Location.watchPositionAsync(
+      watchPositionSubscription.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
           timeInterval: 2000,
@@ -180,30 +234,107 @@ function DashboardScreen({ onLogout }) {
         async (newLocation) => {
           const { latitude, longitude, speed } = newLocation.coords;
           const speedKmh = (speed || 0) * 3.6;
-          setLocationStatus(`📍 LIVE | Speed: ${speedKmh.toFixed(1)} km/h`);
-          
-          const tId = await AsyncStorage.getItem('truckId');
-          if (tId && tId !== '0') {
-            fetch(`${API_URL}/api/update_location.php`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                truck_id: parseInt(tId),
-                latitude,
-                longitude,
-                speed: speedKmh,
-                accuracy: newLocation.coords.accuracy || 10
-              })
-            }).catch(err => console.error('Send error:', err));
-          }
+          setLocationStatus(`📍 LIVE GPS | Speed: ${speedKmh.toFixed(1)} km/h`);
+          await sendLocationToServer(latitude, longitude, speedKmh);
         }
-      ).catch(error => {
-        console.error('Watch error:', error);
-        setLocationStatus('❌ GPS error');
-      });
+      );
     } catch (error) {
       console.error('Start tracking error:', error);
       setLocationStatus('❌ Failed to start GPS');
+      Alert.alert('Error', 'Failed to start GPS tracking');
+    }
+  };
+
+  // Simulation tracking
+  const startSimulation = () => {
+    if (simulationInterval.current) {
+      clearInterval(simulationInterval.current);
+    }
+    
+    setCurrentWaypointIndex(0);
+    setLocationStatus(`🚛 SIMULATION | Speed: ${simulationSpeed} km/h | Moving...`);
+    
+    // Calculate interval based on speed
+    const distanceBetweenPoints = 0.2; // km
+    const speedKmh = parseFloat(simulationSpeed);
+    const hoursToNextPoint = distanceBetweenPoints / speedKmh;
+    const millisecondsToNextPoint = hoursToNextPoint * 3600 * 1000;
+    
+    // Minimum 2 seconds, maximum 10 seconds between updates
+    const intervalTime = Math.min(Math.max(millisecondsToNextPoint, 2000), 10000);
+    
+    simulationInterval.current = setInterval(async () => {
+      const waypoint = simulationRoute.current[currentWaypointIndex];
+      if (waypoint) {
+        const speedKmh = parseFloat(simulationSpeed);
+        setLocationStatus(`🚛 SIMULATION | Speed: ${speedKmh.toFixed(1)} km/h | Location: ${waypoint.name}`);
+        await sendLocationToServer(waypoint.latitude, waypoint.longitude, speedKmh);
+        
+        // Move to next waypoint
+        setCurrentWaypointIndex((prevIndex) => {
+          const nextIndex = prevIndex + 1;
+          if (nextIndex >= simulationRoute.current.length) {
+            return 0; // Loop back to start
+          }
+          return nextIndex;
+        });
+      }
+    }, intervalTime);
+  };
+
+  const stopSimulation = () => {
+    if (simulationInterval.current) {
+      clearInterval(simulationInterval.current);
+      simulationInterval.current = null;
+    }
+  };
+
+  const stopRealTracking = () => {
+    if (watchPositionSubscription.current) {
+      watchPositionSubscription.current.remove();
+      watchPositionSubscription.current = null;
+    }
+  };
+
+  const toggleSimulationMode = async (value) => {
+    if (value) {
+      // Switching to simulation mode
+      Alert.alert(
+        'Enable Simulation',
+        'Simulation mode will use a predefined route instead of real GPS. Continue?',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => setSimulationMode(false) },
+          {
+            text: 'Enable',
+            onPress: async () => {
+              setSimulationMode(true);
+              // Stop real GPS tracking
+              stopRealTracking();
+              // Start simulation
+              startSimulation();
+            }
+          }
+        ]
+      );
+    } else {
+      // Switching back to real GPS
+      Alert.alert(
+        'Disable Simulation',
+        'Switch back to real GPS tracking?',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => setSimulationMode(true) },
+          {
+            text: 'Switch to GPS',
+            onPress: async () => {
+              setSimulationMode(false);
+              // Stop simulation
+              stopSimulation();
+              // Start real GPS
+              await startRealTracking();
+            }
+          }
+        ]
+      );
     }
   };
 
@@ -342,6 +473,8 @@ function DashboardScreen({ onLogout }) {
         text: 'Logout',
         style: 'destructive',
         onPress: async () => {
+          stopSimulation();
+          stopRealTracking();
           await AsyncStorage.clear();
           onLogout();
         }
@@ -359,6 +492,88 @@ function DashboardScreen({ onLogout }) {
 
   const renderDashboard = () => (
     <ScrollView>
+      {/* Simulation Control Panel - Always visible */}
+      <View style={styles.simulationCard}>
+        <View style={styles.simulationHeader}>
+          <Text style={styles.simulationTitle}>🚗 GPS Simulation Mode</Text>
+          <View style={styles.simulationToggle}>
+            <Text style={styles.toggleLabel}>Enable Simulation</Text>
+            <Switch
+              value={simulationMode}
+              onValueChange={toggleSimulationMode}
+              trackColor={{ false: '#767577', true: '#3758f9' }}
+              thumbColor={simulationMode ? '#f4f3f4' : '#f4f3f4'}
+            />
+          </View>
+        </View>
+        
+        {simulationMode && (
+          <View style={styles.simulationControls}>
+            <Text style={styles.simulationLabel}>Simulation Speed:</Text>
+            <View style={styles.speedControl}>
+              <TouchableOpacity
+                style={styles.speedButton}
+                onPress={() => {
+                  const newSpeed = Math.max(5, parseFloat(simulationSpeed) - 5);
+                  setSimulationSpeed(String(newSpeed));
+                  if (simulationMode) {
+                    // Restart simulation with new speed
+                    stopSimulation();
+                    startSimulation();
+                  }
+                }}
+              >
+                <Text style={styles.speedButtonText}>-</Text>
+              </TouchableOpacity>
+              <TextInput
+                style={styles.speedInput}
+                value={simulationSpeed}
+                onChangeText={(value) => {
+                  setSimulationSpeed(value);
+                }}
+                keyboardType="numeric"
+              />
+              <Text style={styles.speedUnit}>km/h</Text>
+              <TouchableOpacity
+                style={styles.speedButton}
+                onPress={() => {
+                  const newSpeed = Math.min(120, parseFloat(simulationSpeed) + 5);
+                  setSimulationSpeed(String(newSpeed));
+                  if (simulationMode) {
+                    // Restart simulation with new speed
+                    stopSimulation();
+                    startSimulation();
+                  }
+                }}
+              >
+                <Text style={styles.speedButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.restartSimulationButton}
+              onPress={() => {
+                stopSimulation();
+                startSimulation();
+              }}
+            >
+              <Text style={styles.restartSimulationText}>⟳ Restart Route</Text>
+            </TouchableOpacity>
+            <Text style={styles.simulationInfo}>
+              Current waypoint: {simulationRoute.current[currentWaypointIndex]?.name || 'Unknown'} ({currentWaypointIndex + 1}/{simulationRoute.current.length})
+            </Text>
+          </View>
+        )}
+        
+        {!simulationMode && !watchPositionSubscription.current && (
+          <TouchableOpacity
+            style={styles.startGpsButton}
+            onPress={startRealTracking}
+          >
+            <Text style={styles.startGpsButtonText}>Start GPS Tracking</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View style={styles.statusCard}>
         <Text style={styles.statusText}>{locationStatus}</Text>
       </View>
@@ -408,17 +623,29 @@ function DashboardScreen({ onLogout }) {
   );
 
   const renderMap = () => (
-    <View style={styles.mapPlaceholder}>
-      <Text style={styles.mapPlaceholderText}>🗺️</Text>
-      <Text style={styles.mapPlaceholderTitle}>Live Map</Text>
-      <Text style={styles.mapPlaceholderSubtext}>Full map view coming soon</Text>
-      <Text style={styles.mapPlaceholderInfo}>Your current location is being tracked</Text>
-      {currentTrip && (
-        <View style={styles.mapRouteInfo}>
-          <Text style={styles.mapRouteText}>Route: {currentTrip.start_location} → {currentTrip.end_location}</Text>
-        </View>
-      )}
-    </View>
+    <ScrollView>
+      <View style={styles.mapPlaceholder}>
+        <Text style={styles.mapPlaceholderText}>🗺️</Text>
+        <Text style={styles.mapPlaceholderTitle}>Live Map</Text>
+        <Text style={styles.mapPlaceholderSubtext}>Full map view coming soon</Text>
+        <Text style={styles.mapPlaceholderInfo}>Your current location is being tracked</Text>
+        {simulationMode && (
+          <View style={styles.mapRouteInfo}>
+            <Text style={styles.mapRouteTitle}>Simulation Route:</Text>
+            {simulationRoute.current.map((point, index) => (
+              <Text key={index} style={[styles.mapRoutePoint, index === currentWaypointIndex && styles.currentPoint]}>
+                {index === currentWaypointIndex ? '📍 ' : '  '}{point.name}
+              </Text>
+            ))}
+          </View>
+        )}
+        {currentTrip && (
+          <View style={styles.mapRouteInfo}>
+            <Text style={styles.mapRouteText}>Route: {currentTrip.start_location} → {currentTrip.end_location}</Text>
+          </View>
+        )}
+      </View>
+    </ScrollView>
   );
 
   const renderTrips = () => (
@@ -469,6 +696,10 @@ function DashboardScreen({ onLogout }) {
           <Text style={styles.infoLabel}>Assigned Truck:</Text>
           <Text style={styles.infoValue}>{truckPlate || 'Not assigned'}</Text>
         </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Tracking Mode:</Text>
+          <Text style={styles.infoValue}>{simulationMode ? 'Simulation' : (watchPositionSubscription.current ? 'Real GPS Active' : 'Not Tracking')}</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -506,7 +737,6 @@ function DashboardScreen({ onLogout }) {
       {activeTab === 'trips' && renderTrips()}
       {activeTab === 'profile' && renderProfile()}
 
-      {/* Report Issue Modal */}
       <Modal visible={reportModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -531,7 +761,6 @@ function DashboardScreen({ onLogout }) {
         </View>
       </Modal>
 
-      {/* Maintenance Modal */}
       <Modal visible={maintenanceModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -562,7 +791,6 @@ function DashboardScreen({ onLogout }) {
         </View>
       </Modal>
 
-      {/* Fuel Modal */}
       <Modal visible={fuelModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -599,7 +827,6 @@ function DashboardScreen({ onLogout }) {
         </View>
       </Modal>
 
-      {/* Incident Modal */}
       <Modal visible={incidentModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -783,6 +1010,105 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: '#6b7280',
   },
+  simulationCard: {
+    backgroundColor: '#fff',
+    margin: 15,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  simulationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  simulationTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  simulationToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  toggleLabel: {
+    fontSize: 12,
+    marginRight: 8,
+    color: '#6b7280',
+  },
+  simulationControls: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  simulationLabel: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 8,
+  },
+  speedControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  speedButton: {
+    backgroundColor: '#e5e7eb',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  speedButtonText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  speedInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 10,
+    width: 80,
+    textAlign: 'center',
+    marginHorizontal: 10,
+    fontSize: 16,
+  },
+  speedUnit: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginRight: 10,
+  },
+  restartSimulationButton: {
+    backgroundColor: '#10b981',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  restartSimulationText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  simulationInfo: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  startGpsButton: {
+    backgroundColor: '#3758f9',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  startGpsButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   statusCard: {
     backgroundColor: '#10b981',
     margin: 15,
@@ -854,13 +1180,11 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
+    padding: 20,
   },
   mapPlaceholderText: {
     fontSize: 80,
+    textAlign: 'center',
     marginBottom: 20,
   },
   mapPlaceholderTitle: {
@@ -868,11 +1192,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 10,
+    textAlign: 'center',
   },
   mapPlaceholderSubtext: {
     fontSize: 14,
     color: '#6b7280',
     marginBottom: 20,
+    textAlign: 'center',
   },
   mapPlaceholderInfo: {
     fontSize: 12,
@@ -884,6 +1210,21 @@ const styles = StyleSheet.create({
     padding: 15,
     backgroundColor: '#f3f4f6',
     borderRadius: 8,
+  },
+  mapRouteTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#374151',
+  },
+  mapRoutePoint: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginVertical: 2,
+  },
+  currentPoint: {
+    color: '#3758f9',
+    fontWeight: 'bold',
   },
   mapRouteText: {
     fontSize: 14,

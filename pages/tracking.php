@@ -261,7 +261,6 @@ let allTrucks = [];
 let currentlyOpenPopup = null;
 let currentOpenTruckId = null;
 
-// Initialize map with DARK MODE tiles
 function initMap() {
     map = L.map('map').setView([31.7917, -7.0926], 6);
     

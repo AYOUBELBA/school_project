@@ -30,7 +30,7 @@ public function login($email, $password) {
             $_SESSION['user_email'] = $user['email'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['user_role'] = $user['role'];
-            $_SESSION['company_id'] = $user['company_id'];      // CRITICAL
+            $_SESSION['company_id'] = $user['company_id'];
             $_SESSION['company_name'] = $user['company_name'];
             $_SESSION['subscription_status'] = $user['subscription_status'];
             $_SESSION['login_time'] = time();
@@ -50,57 +50,53 @@ public function login($email, $password) {
 }
     
     public function registerCompany($username, $email, $password, $companyName, $plan = 'standard') {
-        try {
-            $this->conn->beginTransaction();
-            
-            // Create company
-            $trialEnds = date('Y-m-d H:i:s', strtotime('+7 days'));
-            $maxDrivers = $plan === 'standard' ? 5 : ($plan === 'premium' ? 20 : 999999);
-            $maxTrucks = $plan === 'standard' ? 5 : ($plan === 'premium' ? 20 : 999999);
-            $maxManagers = $plan === 'standard' ? 2 : ($plan === 'premium' ? 5 : 999999);
-            
-            $companySql = "INSERT INTO companies (name, subscription_plan, max_drivers, max_trucks, max_managers, 
-                          subscription_status, trial_ends_at, created_at) 
-                          VALUES (:name, :plan, :max_drivers, :max_trucks, :max_managers, 'trial', :trial_ends, CURRENT_TIMESTAMP) 
-                          RETURNING id";
-            $companyStmt = $this->conn->prepare($companySql);
-            $companyStmt->bindParam(':name', $companyName);
-            $companyStmt->bindParam(':plan', $plan);
-            $companyStmt->bindParam(':max_drivers', $maxDrivers);
-            $companyStmt->bindParam(':max_trucks', $maxTrucks);
-            $companyStmt->bindParam(':max_managers', $maxManagers);
-            $companyStmt->bindParam(':trial_ends', $trialEnds);
-            $companyStmt->execute();
-            $companyId = $companyStmt->fetch(PDO::FETCH_ASSOC)['id'];
-            
-            // Create user as owner
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $userSql = "INSERT INTO users (username, email, password_hash, role, company_id, is_active, created_at) 
-                        VALUES (:username, :email, :password_hash, 'owner', :company_id, true, CURRENT_TIMESTAMP) 
-                        RETURNING id";
-            $userStmt = $this->conn->prepare($userSql);
-            $userStmt->bindParam(':username', $username);
-            $userStmt->bindParam(':email', $email);
-            $userStmt->bindParam(':password_hash', $hashed_password);
-            $userStmt->bindParam(':company_id', $companyId);
-            $userStmt->execute();
-            $userId = $userStmt->fetch(PDO::FETCH_ASSOC)['id'];
-            
-            // Update company owner
-            $updateCompany = "UPDATE companies SET owner_id = :owner_id WHERE id = :company_id";
-            $updateStmt = $this->conn->prepare($updateCompany);
-            $updateStmt->bindParam(':owner_id', $userId);
-            $updateStmt->bindParam(':company_id', $companyId);
-            $updateStmt->execute();
-            
-            $this->conn->commit();
-            
-            return ['success' => true, 'company_id' => $companyId, 'user_id' => $userId];
-        } catch(PDOException $e) {
-            $this->conn->rollBack();
-            return ['success' => false, 'message' => $e->getMessage()];
-        }
+    try {
+        $this->conn->beginTransaction();
+        
+        // Create company (NO trial_ends_at)
+        $maxDrivers = $plan === 'standard' ? 5 : ($plan === 'premium' ? 20 : 999999);
+        $maxTrucks = $plan === 'standard' ? 5 : ($plan === 'premium' ? 20 : 999999);
+        $maxManagers = $plan === 'standard' ? 2 : ($plan === 'premium' ? 5 : 999999);
+        
+        $companySql = "INSERT INTO companies (name, subscription_plan, max_drivers, max_trucks, max_managers, 
+                      subscription_status, created_at) 
+                      VALUES (:name, :plan, :max_drivers, :max_trucks, :max_managers, 'active', CURRENT_TIMESTAMP) 
+                      RETURNING id";
+        $companyStmt = $this->conn->prepare($companySql);
+        $companyStmt->bindParam(':name', $companyName);
+        $companyStmt->bindParam(':plan', $plan);
+        $companyStmt->bindParam(':max_drivers', $maxDrivers);
+        $companyStmt->bindParam(':max_trucks', $maxTrucks);
+        $companyStmt->bindParam(':max_managers', $maxManagers);
+        $companyStmt->execute();
+        $companyId = $companyStmt->fetch(PDO::FETCH_ASSOC)['id'];
+        
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+        $userSql = "INSERT INTO users (username, email, password_hash, role, company_id, is_active, created_at) 
+                    VALUES (:username, :email, :password_hash, 'owner', :company_id, true, CURRENT_TIMESTAMP) 
+                    RETURNING id";
+        $userStmt = $this->conn->prepare($userSql);
+        $userStmt->bindParam(':username', $username);
+        $userStmt->bindParam(':email', $email);
+        $userStmt->bindParam(':password_hash', $hashed_password);
+        $userStmt->bindParam(':company_id', $companyId);
+        $userStmt->execute();
+        $userId = $userStmt->fetch(PDO::FETCH_ASSOC)['id'];
+        
+        $updateCompany = "UPDATE companies SET owner_id = :owner_id WHERE id = :company_id";
+        $updateStmt = $this->conn->prepare($updateCompany);
+        $updateStmt->bindParam(':owner_id', $userId);
+        $updateStmt->bindParam(':company_id', $companyId);
+        $updateStmt->execute();
+        
+        $this->conn->commit();
+        
+        return ['success' => true, 'company_id' => $companyId, 'user_id' => $userId];
+    } catch(PDOException $e) {
+        $this->conn->rollBack();
+        return ['success' => false, 'message' => $e->getMessage()];
     }
+}
     
     public function registerWithInvite($token, $username, $email, $password) {
         // Check if invitation exists and is valid
