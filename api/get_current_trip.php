@@ -25,7 +25,7 @@ if (!$driver_id) {
 }
 
 try {
-    // Get current active trip for this driver (planned or ongoing)
+    // Get current active trip for this driver
     $sql = "SELECT 
                 t.id,
                 t.trip_number,

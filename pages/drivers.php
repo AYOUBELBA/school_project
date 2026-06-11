@@ -13,10 +13,27 @@ if($_SESSION['user_role'] == "driver"){
     exit();
 }
 
-
+$company_id = $_SESSION['company_id'] ?? null;
 $database = new Database();
 $db = $database->getConnection();
 $driverModel = new Driver($db);
+
+if(!$company_id) {
+    // Try to get from user
+    $userSql = "SELECT company_id FROM users WHERE id = :user_id";
+    $userStmt = $db->prepare($userSql);
+    $userStmt->bindParam(':user_id', $_SESSION['user_id']);
+    $userStmt->execute();
+    $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+    $company_id = $user['company_id'] ?? null;
+    $_SESSION['company_id'] = $company_id;
+}
+
+if(!$company_id) {
+    $_SESSION['flash_error'] = "Company not found. Please contact support.";
+    header("Location: drivers.php");
+    exit();
+}
 
 // Handle CRUD operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -58,19 +75,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if($checkStmt->rowCount() == 0) {
                     // Create user account
-                    $userSql = "INSERT INTO users (username, email, password_hash, role, is_active, created_at) 
-                                VALUES (:username, :email, :password_hash, 'driver', true, CURRENT_TIMESTAMP) 
-                                RETURNING id";
+                    $userSql = "INSERT INTO users (username, email, password_hash, role, company_id, is_active, created_at) 
+                        VALUES (:username, :email, :password_hash, 'driver', :company_id, true, CURRENT_TIMESTAMP) 
+                        RETURNING id";
                     $userStmt = $db->prepare($userSql);
                     $userStmt->bindParam(':username', $username);
                     $userStmt->bindParam(':email', $email);
                     $userStmt->bindParam(':password_hash', $hashed_password);
+                    $userStmt->bindParam(':company_id', $company_id);
                     $userStmt->execute();
                     $user_id = $userStmt->fetch(PDO::FETCH_ASSOC)['id'];
                     
                     // Create driver profile linked to user account
                     $data = [
                         'user_id' => $user_id,
+                        'company_id' => $company_id,
                         'full_name' => $full_name,
                         'phone' => $phone,
                         'license_number' => $license_number,
@@ -84,13 +103,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     // If email exists, create alternative email
                     $email = strtolower(str_replace(' ', '.', $full_name)) . rand(1, 999) . '@driver.com';
-                    $userSql = "INSERT INTO users (username, email, password_hash, role, is_active, created_at) 
-                                VALUES (:username, :email, :password_hash, 'driver', true, CURRENT_TIMESTAMP) 
-                                RETURNING id";
+                    $userSql = "INSERT INTO users (username, email, password_hash, role, company_id, is_active, created_at) 
+                        VALUES (:username, :email, :password_hash, 'driver', :company_id, true, CURRENT_TIMESTAMP) 
+                        RETURNING id";
                     $userStmt = $db->prepare($userSql);
                     $userStmt->bindParam(':username', $username);
                     $userStmt->bindParam(':email', $email);
                     $userStmt->bindParam(':password_hash', $hashed_password);
+                    $userStmt->bindParam(':company_id', $company_id);
                     $userStmt->execute();
                     $user_id = $userStmt->fetch(PDO::FETCH_ASSOC)['id'];
                     
