@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 
-const API_URL = 'http://192.168.110.20/school_project';
+const API_URL = 'http://192.168.100.116/school_project';
 
 export default function DashboardScreen() {
   const navigation = useNavigation();
@@ -117,15 +117,51 @@ export default function DashboardScreen() {
     }).catch(err => console.error('Status update error:', err));
   };
 
-const startTripNavigation = () => {
-  if (currentTrip) {
-    navigation.navigate('IntegratedMap', { 
-      tripId: currentTrip.id,
-      endLocation: currentTrip.end_location,
-      tripNumber: currentTrip.trip_number
-    });
-  }
-};
+  // FIXED: Fetch coordinates before navigating
+  const startTripNavigation = async () => {
+    if (!currentTrip) {
+      Alert.alert('No Trip', 'No active trip to navigate');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const driverId = await AsyncStorage.getItem('driverId');
+      
+      console.log('Fetching coordinates for trip:', currentTrip.id);
+      
+      const response = await fetch(`${API_URL}/api/get_trip_coords.php?id=${currentTrip.id}&driver_id=${driverId}`);
+      const data = await response.json();
+      
+      console.log('Response data:', data);
+      
+      if (data.success && data.start_lat && data.end_lat) {
+        navigation.navigate('IntegratedMap', {
+          origin: {
+            latitude: parseFloat(data.start_lat),
+            longitude: parseFloat(data.start_lng),
+            title: data.start_location,
+            address: data.start_location
+          },
+          destination: {
+            latitude: parseFloat(data.end_lat),
+            longitude: parseFloat(data.end_lng),
+            title: data.end_location,
+            address: data.end_location
+          },
+          tripId: currentTrip.id,
+          tripNumber: currentTrip.trip_number
+        });
+      } else {
+        Alert.alert('Error', data.message || 'Coordinates not available for this trip');
+      }
+    } catch (error) {
+      console.error('Error fetching trip coordinates:', error);
+      Alert.alert('Error', 'Failed to load trip map. Check your network connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateTripStatus = async (status) => {
     const driverId = await AsyncStorage.getItem('driverId');

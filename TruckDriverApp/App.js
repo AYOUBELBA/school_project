@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as NavigationBar from 'expo-navigation-bar';
 
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -13,8 +14,6 @@ import MaintenanceScreen from './src/screens/MaintenanceScreen';
 import AddFuelScreen from './src/screens/AddFuelScreen';
 import IncidentScreen from './src/screens/IncidentScreen';
 import IntegratedMapScreen from './src/screens/IntegratedMapScreen';
-
-// DO NOT import TripOptionsScreen here - it's a component used inside TripsScreen
 
 const Stack = createNativeStackNavigator();
 
@@ -32,7 +31,31 @@ export default function App() {
 
   useEffect(() => {
     checkLogin();
+    setupFullscreenMode(); // Call this on app start
   }, []);
+
+  // Function to hide Android navigation bar
+  const setupFullscreenMode = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        // Hide the navigation bar completely
+        await NavigationBar.setVisibilityAsync('hidden');
+        
+        // Make content appear behind the navigation bar area
+        await NavigationBar.setPositionAsync('absolute');
+        
+        // Allow swipe from edge to show bar temporarily
+        await NavigationBar.setBehaviorAsync('overlay-swipe');
+        
+        // Optional: Change button color (if they appear)
+        await NavigationBar.setButtonStyleAsync('light');
+        
+        console.log('Navigation bar hidden');
+      } catch (error) {
+        console.error('Error hiding navigation bar:', error);
+      }
+    }
+  };
 
   const checkLogin = async () => {
     try {
@@ -66,6 +89,7 @@ export default function App() {
             <Stack.Screen name="AddFuel" component={AddFuelScreen} />
             <Stack.Screen name="Incident" component={IncidentScreen} />
             <Stack.Screen name="IntegratedMap" component={IntegratedMapScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
           </>
         )}
       </Stack.Navigator>

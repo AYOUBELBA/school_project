@@ -10,7 +10,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.110.20/school_project';
+const API_URL = 'http://192.168.100.116/school_project';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();

@@ -9,12 +9,14 @@ import {
   RefreshControl,
   Linking,
   Platform,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import TripOptionsScreen from './TripOptionsScreen';
 
-const API_URL = 'http://192.168.110.20/school_project';
+const API_URL = 'http://192.168.100.116/school_project';  // YOUR ACTUAL SERVER IP
 
 export default function TripsScreen() {
   const navigation = useNavigation();
@@ -65,41 +67,75 @@ export default function TripsScreen() {
     setModalVisible(true);
   };
 
-  const navigateInApp = () => {
-    setModalVisible(false);
-    if (selectedTrip) {
-      navigation.navigate('IntegratedMap', {
-        tripId: selectedTrip.id,
-        endLocation: selectedTrip.end_location,
-        tripNumber: selectedTrip.trip_number,
-        startLocation: selectedTrip.start_location,
-      });
-    }
-  };
+const viewTripOnMap = async (trip) => {
+  try {
+    setLoading(true);
+    
+    // Get the driver ID from AsyncStorage
+    const driverId = await AsyncStorage.getItem('driverId');
+    
 
+    // Pass both trip ID and driver ID
+    const response = await fetch(`${API_URL}/api/get_trip_coords.php?id=${trip.id}&driver_id=${driverId}`);
+    const data = await response.json();
+    
+    console.log('Response data:', data);
+    
+    if (data.success && data.start_lat && data.end_lat) {
+      navigation.navigate('IntegratedMap', {
+        origin: {
+          latitude: parseFloat(data.start_lat),
+          longitude: parseFloat(data.start_lng),
+          title: data.start_location,
+          address: data.start_location
+        },
+        destination: {
+          latitude: parseFloat(data.end_lat),
+          longitude: parseFloat(data.end_lng),
+          title: data.end_location,
+          address: data.end_location
+        },
+        tripId: trip.id,
+        tripNumber: trip.trip_number
+      });
+      setModalVisible(false);
+    } else {
+      Alert.alert('Error', data.message || 'Coordinates not available for this trip');
+    }
+  } catch (error) {
+    console.error('Error fetching trip coordinates:', error);
+    Alert.alert('Error', 'Failed to load trip map. Check your network connection.');
+  } finally {
+    setLoading(false);
+  }
+};
   const openGoogleMaps = async () => {
     setModalVisible(false);
     if (!selectedTrip) return;
 
-    // Get current location first
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    let currentLat = 31.7917;
-    let currentLng = -7.0926;
-    
-    if (status === 'granted') {
-      const location = await Location.getCurrentPositionAsync({});
-      currentLat = location.coords.latitude;
-      currentLng = location.coords.longitude;
-    }
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      let currentLat = 31.7917;
+      let currentLng = -7.0926;
+      
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        currentLat = location.coords.latitude;
+        currentLng = location.coords.longitude;
+      }
 
-    const url = Platform.select({
-      ios: `maps://app?daddr=${encodeURIComponent(selectedTrip.end_location)}&saddr=${currentLat},${currentLng}`,
-      android: `https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLng}&destination=${encodeURIComponent(selectedTrip.end_location)}&travelmode=driving`
-    });
+      const url = Platform.select({
+        ios: `maps://app?daddr=${encodeURIComponent(selectedTrip.end_location)}&saddr=${currentLat},${currentLng}`,
+        android: `https://www.google.com/maps/dir/?api=1&origin=${currentLat},${currentLng}&destination=${encodeURIComponent(selectedTrip.end_location)}&travelmode=driving`
+      });
 
-    Linking.openURL(url).catch(() => {
+      Linking.openURL(url).catch(() => {
+        Alert.alert('Error', 'Could not open Google Maps');
+      });
+    } catch (error) {
+      console.error('Error opening Google Maps:', error);
       Alert.alert('Error', 'Could not open Google Maps');
-    });
+    }
   };
 
   if (loading) {
@@ -171,8 +207,19 @@ export default function TripsScreen() {
       <TripOptionsScreen
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        onNavigateInApp={navigateInApp}
+        onNavigateInApp={() => {
+          setModalVisible(false);
+          if (selectedTrip) {
+            navigation.navigate('IntegratedMap', {
+              tripId: selectedTrip.id,
+              endLocation: selectedTrip.end_location,
+              tripNumber: selectedTrip.trip_number,
+              startLocation: selectedTrip.start_location,
+            });
+          }
+        }}
         onOpenGoogleMaps={openGoogleMaps}
+        onViewTripOnMap={viewTripOnMap}
         trip={selectedTrip}
       />
     </ScrollView>

@@ -5,9 +5,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
+  Alert,
 } from 'react-native';
 
-export default function TripOptionsScreen({ visible, onClose, onNavigateInApp, onOpenGoogleMaps, trip }) {
+export default function TripOptionsScreen({ 
+  visible, 
+  onClose, 
+  onNavigateInApp, 
+  onOpenGoogleMaps, 
+  trip,
+  onViewTripOnMap  // NEW: Add this prop
+}) {
   if (!trip) return null;
 
   return (
@@ -37,7 +45,16 @@ export default function TripOptionsScreen({ visible, onClose, onNavigateInApp, o
 
           <Text style={styles.optionsTitle}>Choose Navigation Method</Text>
 
-          <TouchableOpacity style={[styles.optionButton, styles.inAppButton]} onPress={onNavigateInApp}>
+          <TouchableOpacity 
+            style={[styles.optionButton, styles.inAppButton]} 
+            onPress={() => {
+              if (onViewTripOnMap) {
+                onViewTripOnMap(trip);
+              } else {
+                Alert.alert('Error', 'Navigation not available');
+              }
+            }}
+          >
             <Text style={styles.optionIcon}>🗺️</Text>
             <View style={styles.optionTextContainer}>
               <Text style={styles.optionTitle}>In-App Navigation</Text>
@@ -63,7 +80,6 @@ export default function TripOptionsScreen({ visible, onClose, onNavigateInApp, o
     </Modal>
   );
 }
-
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
