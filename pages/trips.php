@@ -1,12 +1,12 @@
 <?php
-// pages/trips.php - Cleaned up version
+/** @var \PDO $db */
 require_once '../includes/check_auth.php';
 require_once '../models/Trip.php';
 require_once '../models/Truck.php';
 require_once '../models/Driver.php';
 require_once '../models/Route.php';
 
-// $db is already available from check_auth.php
+
 $tripModel = new Trip($db);
 $truckModel = new Truck($db);
 $driverModel = new Driver($db);

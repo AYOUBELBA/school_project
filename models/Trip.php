@@ -1,9 +1,9 @@
 <?php
 class Trip {
-    private $conn;
+    private \PDO $conn;
     private $table = "trips";
     
-    public function __construct($db) {
+    public function __construct(\PDO $db) {
         $this->conn = $db;
         if(isset($_SESSION['user_id']) && !isset($_SESSION['company_id'])) {
             $sql = "SELECT company_id FROM users WHERE id = :user_id";
@@ -18,40 +18,46 @@ class Trip {
     }
     
     // NEW: Geocode address to coordinates using OpenStreetMap (free, no API key)
-    private function geocodeAddress($address) {
-        if (empty($address)) {
-            return null;
-        }
-        
-        // URL encode the address
-        $encodedAddress = urlencode($address);
-        $url = "https://nominatim.openstreetmap.org/search?q={$encodedAddress}&format=json&limit=1";
-        
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'TruckFleetSystem/1.0'); // Required by Nominatim
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if ($httpCode === 200 && $response) {
-            $data = json_decode($response, true);
-            if (!empty($data) && isset($data[0])) {
-                return [
-                    'lat' => $data[0]['lat'],
-                    'lng' => $data[0]['lon']
-                ];
-            }
-        }
-        
+private function geocodeAddress(string $address): ?array {
+    if (empty($address)) {
         return null;
     }
     
+    $encodedAddress = urlencode($address);
+    $url = "https://nominatim.openstreetmap.org/search?q={$encodedAddress}&format=json&limit=1";
+    
+    // Use file_get_contents instead of curl (no deprecation warnings)
+    $options = [
+        'http' => [
+            'method' => 'GET',
+            'header' => "User-Agent: TruckFleetSystem/1.0\r\n",
+            'timeout' => 10,
+            'ignore_errors' => true
+        ]
+    ];
+    
+    $context = stream_context_create($options);
+    $response = file_get_contents($url, false, $context);
+    
+    if ($response === false) {
+        error_log("Geocoding failed for address: $address");
+        return null;
+    }
+    
+    $data = json_decode($response, true);
+    
+    if (!empty($data) && isset($data[0])) {
+        return [
+            'lat' => $data[0]['lat'],
+            'lng' => $data[0]['lon']
+        ];
+    }
+    
+    return null;
+}
+    
     // MODIFIED: Create method with geocoding
-    public function create($data) {
+    public function create(array $data): int|false {
         $company_id = $_SESSION['company_id'];
         
         // Geocode start and end locations to get coordinates
@@ -142,7 +148,7 @@ class Trip {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    public function getById($id) {
+    public function getById(int $id): ?array {
         $company_id = $_SESSION['company_id'];
         $query = "SELECT * FROM " . $this->table . " WHERE id = :id AND company_id = :company_id";
         $stmt = $this->conn->prepare($query);
@@ -152,7 +158,7 @@ class Trip {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
-    public function updateStatus($id, $status) {
+    public function updateStatus(int $id, string $status): bool {
         $company_id = $_SESSION['company_id'];
         $query = "UPDATE " . $this->table . " SET status = :status WHERE id = :id AND company_id = :company_id";
         $stmt = $this->conn->prepare($query);
