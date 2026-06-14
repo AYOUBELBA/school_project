@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.100.116/school_project';
+const API_URL = 'http://192.168.110.20/school_project';
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState('driver3@driver.com');
