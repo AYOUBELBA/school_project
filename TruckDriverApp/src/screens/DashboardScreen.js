@@ -128,12 +128,10 @@ export default function DashboardScreen() {
       setLoading(true);
       const driverId = await AsyncStorage.getItem('driverId');
       
-      console.log('Fetching coordinates for trip:', currentTrip.id);
       
       const response = await fetch(`${API_URL}/api/get_trip_coords.php?id=${currentTrip.id}&driver_id=${driverId}`);
       const data = await response.json();
-      
-      console.log('Response data:', data);
+
       
       if (data.success && data.start_lat && data.end_lat) {
         navigation.navigate('IntegratedMap', {

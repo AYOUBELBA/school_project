@@ -78,8 +78,7 @@ const viewTripOnMap = async (trip) => {
     // Pass both trip ID and driver ID
     const response = await fetch(`${API_URL}/api/get_trip_coords.php?id=${trip.id}&driver_id=${driverId}`);
     const data = await response.json();
-    
-    console.log('Response data:', data);
+
     
     if (data.success && data.start_lat && data.end_lat) {
       navigation.navigate('IntegratedMap', {
