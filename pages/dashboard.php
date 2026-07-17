@@ -6,7 +6,7 @@ require_once '../includes/check_auth.php';
 require_once '../models/Truck.php';
 require_once '../models/Driver.php';
 require_once '../models/Trip.php';
-
+$db = db();
 $truckModel = new Truck($db);
 $driverModel = new Driver($db);
 $tripModel = new Trip($db);

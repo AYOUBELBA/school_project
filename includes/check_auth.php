@@ -14,7 +14,10 @@ $db = $database->getConnection();
 
 // Create auth instance
 $auth = new Auth($db);
-
+function db() {
+    global $db;
+    return $db;
+}
 // Now check if user is logged in
 if(!isset($_SESSION['user_id'])) {
     $current_page = basename($_SERVER['PHP_SELF']);

@@ -55,9 +55,9 @@ class Driver {
         }
         
         $query = "INSERT INTO " . $this->table . "
-                  (user_id, full_name, phone, license_number, license_expiry, status, hire_date, address, company_id)
-                  VALUES (:user_id, :full_name, :phone, :license_number, :license_expiry, :status, :hire_date, :address, :company_id)
-                  RETURNING id";
+              (user_id, company_id, full_name, phone, license_number, license_expiry, status, hire_date, address)
+              VALUES (:user_id, :company_id, :full_name, :phone, :license_number, :license_expiry, :status, :hire_date, :address)
+              RETURNING id";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':user_id', $data['user_id']);
@@ -68,7 +68,7 @@ class Driver {
         $stmt->bindParam(':status', $data['status']);
         $stmt->bindParam(':hire_date', $data['hire_date']);
         $stmt->bindParam(':address', $data['address']);
-        $stmt->bindParam(':company_id', $company_id);
+        $stmt->bindParam(':company_id', $data['company_id']);
         
         if($stmt->execute()) {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);

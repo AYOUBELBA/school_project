@@ -38,32 +38,35 @@ class Route {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
-    public function create($data) {
-        $query = "INSERT INTO " . $this->table . "
-                  (name, start_point, end_point, start_lat, start_lng, end_lat, end_lng, 
-                   estimated_distance_km, estimated_duration_min, is_active)
-                  VALUES (:name, :start_point, :end_point, :start_lat, :start_lng, :end_lat, :end_lng,
-                          :estimated_distance_km, :estimated_duration_min, :is_active)
-                  RETURNING id";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':name', $data['name']);
-        $stmt->bindParam(':start_point', $data['start_point']);
-        $stmt->bindParam(':end_point', $data['end_point']);
-        $stmt->bindParam(':start_lat', $data['start_lat']);
-        $stmt->bindParam(':start_lng', $data['start_lng']);
-        $stmt->bindParam(':end_lat', $data['end_lat']);
-        $stmt->bindParam(':end_lng', $data['end_lng']);
-        $stmt->bindParam(':estimated_distance_km', $data['estimated_distance_km']);
-        $stmt->bindParam(':estimated_duration_min', $data['estimated_duration_min']);
-        $stmt->bindParam(':is_active', $data['is_active']);
-        
-        if($stmt->execute()) {
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $result['id'];
-        }
-        return false;
+public function create($data) {
+    $company_id = $_SESSION['company_id'] ?? 0;
+    
+    $query = "INSERT INTO " . $this->table . "
+              (name, start_point, end_point, start_lat, start_lng, end_lat, end_lng, 
+               estimated_distance_km, estimated_duration_min, is_active, company_id)
+              VALUES (:name, :start_point, :end_point, :start_lat, :start_lng, :end_lat, :end_lng,
+                      :estimated_distance_km, :estimated_duration_min, :is_active, :company_id)
+              RETURNING id";
+    
+    $stmt = $this->conn->prepare($query);
+    $stmt->bindParam(':name', $data['name']);
+    $stmt->bindParam(':start_point', $data['start_point']);
+    $stmt->bindParam(':end_point', $data['end_point']);
+    $stmt->bindParam(':start_lat', $data['start_lat']);
+    $stmt->bindParam(':start_lng', $data['start_lng']);
+    $stmt->bindParam(':end_lat', $data['end_lat']);
+    $stmt->bindParam(':end_lng', $data['end_lng']);
+    $stmt->bindParam(':estimated_distance_km', $data['estimated_distance_km']);
+    $stmt->bindParam(':estimated_duration_min', $data['estimated_duration_min']);
+    $stmt->bindParam(':is_active', $data['is_active']);
+    $stmt->bindParam(':company_id', $company_id);
+    
+    if($stmt->execute()) {
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['id'];
     }
+    return false;
+}
     
     public function update($id, $data) {
         $query = "UPDATE " . $this->table . "

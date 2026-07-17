@@ -1,12 +1,12 @@
 <?php
-// pages/trips.php - Cleaned up version
+/** @var \PDO $db */
 require_once '../includes/check_auth.php';
 require_once '../models/Trip.php';
 require_once '../models/Truck.php';
 require_once '../models/Driver.php';
 require_once '../models/Route.php';
 
-// $db is already available from check_auth.php
+
 $tripModel = new Trip($db);
 $truckModel = new Truck($db);
 $driverModel = new Driver($db);
@@ -131,8 +131,8 @@ $routes = $routeModel->getAll();
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-sm">
-                                <button onclick="viewTrip(<?php echo $trip['id']; ?>)" class="text-green-600 hover:text-green-800 mr-2">
-                                    <i class="ri-eye-line"></i>
+                                <button onclick="viewTripOnMap(<?php echo $trip['id']; ?>)" class="text-green-600 hover:text-green-800 mr-2">
+                                    <i class="ri-map-pin-line"></i> Track
                                 </button>
                             </td>
                         </tr>
@@ -239,6 +239,34 @@ function closeModal(id) {
 
 function viewTrip(id) {
     alert('View trip details for ID: ' + id);
+}
+
+function openModal(id) {
+    document.getElementById(id).classList.remove('hidden');
+    document.getElementById(id).classList.add('flex');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+    document.getElementById(id).classList.remove('flex');
+}
+
+// NEW: View trip on map
+function viewTripOnMap(tripId) {
+    // Open the React Native app with trip ID
+    // For web testing, you can show coordinates in alert
+    fetch(`../api/get_trip_coords.php?id=${tripId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // For React Native deep linking (if app is installed)
+                window.location.href = `truckdriverapp://trip/${tripId}`;
+                // Or for testing, show coordinates
+                alert(`Start: ${data.start_lat}, ${data.start_lng}\nEnd: ${data.end_lat}, ${data.end_lng}`);
+            } else {
+                alert('Coordinates not available for this trip');
+            }
+        });
 }
 </script>
 </body>
