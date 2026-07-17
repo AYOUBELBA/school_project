@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { Picker } from '@react-native-picker/picker';
 
-const API_URL = 'http://192.168.110.20/school_project';
+const API_URL = 'http://192.168.100.116/school_project';
 
 // Login Screen
 function LoginScreen({ onLogin }) {

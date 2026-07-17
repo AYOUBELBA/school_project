@@ -434,8 +434,6 @@ function updateMap(trucks) {
         }
     });
     
-    // Log for debugging
-    console.log('Markers added:', Object.keys(markers).length);
 }
 // Update truck list sidebar
 function updateTruckList(trucks) {
