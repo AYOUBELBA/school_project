@@ -10,7 +10,7 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Fleet Tracking | Fleet System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
@@ -20,160 +20,69 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        #map { height: calc(100vh - 200px); width: 100%; border-radius: 12px; z-index: 1; background: #1a1a2e; }
         
-        #map { 
-            height: calc(100vh - 200px); 
-            width: 100%; 
-            border-radius: 12px; 
-            z-index: 1;
-            background: #1a1a2e;
-        }
-        
-        /* Stats Panel - Top Left */
         .stats-panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(15, 25, 35, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 8px 16px;
-            border-radius: 12px;
-            display: flex;
-            gap: 20px;
+            position: absolute; top: 20px; left: 20px; z-index: 1000;
+            background: rgba(15, 25, 35, 0.95); backdrop-filter: blur(10px);
+            padding: 8px 16px; border-radius: 12px; display: flex; gap: 20px;
             border: 1px solid rgba(255,255,255,0.1);
         }
         .stat-item { text-align: center; }
         .stat-value { font-size: 18px; font-weight: bold; }
         .stat-label { font-size: 10px; color: #94a3b8; margin-top: 2px; }
         
-        /* Filter Button */
         .filter-toggle {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: #3b82f6;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 10px;
-            color: white;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            position: absolute; top: 20px; right: 20px; z-index: 1000;
+            background: #3b82f6; border: none; padding: 8px 14px; border-radius: 10px;
+            color: white; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;
+            font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         
-        /* Legend - Bottom Right */
         .legend {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(15, 25, 35, 0.95);
-            padding: 10px 14px;
-            border-radius: 10px;
-            font-size: 10px;
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.1);
+            position: absolute; bottom: 20px; right: 20px; z-index: 1000;
+            background: rgba(15, 25, 35, 0.95); padding: 10px 14px; border-radius: 10px;
+            font-size: 10px; color: #fff; border: 1px solid rgba(255,255,255,0.1);
         }
         .legend-item { display: flex; align-items: center; margin-bottom: 5px; gap: 8px; }
         .legend-color { width: 10px; height: 10px; border-radius: 50%; }
         .legend-line { width: 20px; height: 2px; background: #3b82f6; border-radius: 2px; }
         
-        /* Refresh Indicator - Bottom Left */
         .refresh-indicator {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(15, 25, 35, 0.95);
-            padding: 5px 10px;
-            border-radius: 16px;
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: #94a3b8;
-            border: 1px solid rgba(255,255,255,0.1);
+            position: absolute; bottom: 20px; left: 20px; z-index: 1000;
+            background: rgba(15, 25, 35, 0.95); padding: 5px 10px; border-radius: 16px;
+            font-size: 10px; display: flex; align-items: center; gap: 6px;
+            color: #94a3b8; border: 1px solid rgba(255,255,255,0.1);
         }
         .spinner { animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
         
-        /* Drawer - Bottom Right (above legend) */
         .drawer-container {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1001;
-            pointer-events: none;
+            position: absolute; bottom: 20px; right: 20px; z-index: 1001; pointer-events: none;
         }
         .drawer-toggle {
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            background: #3b82f6;
-            border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            pointer-events: auto;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            transition: all 0.2s;
+            position: absolute; bottom: 0; right: 0; background: #3b82f6; border: none;
+            width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; pointer-events: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: all 0.2s;
         }
         .drawer-toggle:hover { background: #2563eb; transform: scale(1.05); }
         .drawer-content {
-            position: absolute;
-            bottom: 50px;
-            right: 0;
-            width: 280px;
-            max-height: 350px;
-            background: rgba(15, 25, 35, 0.98);
-            backdrop-filter: blur(12px);
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.1);
-            overflow: hidden;
-            transition: all 0.25s ease;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(10px);
-            pointer-events: auto;
+            position: absolute; bottom: 50px; right: 0; width: 280px; max-height: 350px;
+            background: rgba(15, 25, 35, 0.98); backdrop-filter: blur(12px); border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); overflow: hidden; transition: all 0.25s ease;
+            opacity: 0; visibility: hidden; transform: translateY(10px); pointer-events: auto;
         }
-        .drawer-content.open {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
+        .drawer-content.open { opacity: 1; visibility: visible; transform: translateY(0); }
         .drawer-header {
-            padding: 10px 15px;
-            background: rgba(0,0,0,0.3);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
+            padding: 10px 15px; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer;
         }
         .drawer-header h4 { color: white; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-        .truck-list-items {
-            max-height: 290px;
-            overflow-y: auto;
-        }
+        .truck-list-items { max-height: 290px; overflow-y: auto; }
         .truck-list-item {
-            padding: 8px 12px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: background 0.15s;
+            padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;
         }
         .truck-list-item:hover { background: rgba(59,130,246,0.2); }
         .truck-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
@@ -181,83 +90,35 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
         .truck-speed { font-size: 9px; color: #94a3b8; margin-top: 2px; }
         .truck-status-text { font-size: 10px; color: #94a3b8; }
         
-        /* Slide-out Filter Panel */
         .filter-sidebar {
-            position: fixed;
-            top: 0;
-            right: -350px;
-            width: 350px;
-            height: 100vh;
-            background: rgba(15, 25, 35, 0.98);
-            backdrop-filter: blur(12px);
-            z-index: 2000;
-            transition: right 0.25s ease;
-            border-left: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            flex-direction: column;
+            position: fixed; top: 0; right: -350px; width: 350px; height: 100vh;
+            background: rgba(15, 25, 35, 0.98); backdrop-filter: blur(12px); z-index: 2000;
+            transition: right 0.25s ease; border-left: 1px solid rgba(255,255,255,0.1);
+            display: flex; flex-direction: column;
         }
         .filter-sidebar.open { right: 0; }
-        
-        .filter-header {
-            padding: 18px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .filter-header { padding: 18px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; }
         .filter-header h3 { color: white; font-size: 16px; font-weight: 600; }
         .close-filter { background: rgba(255,255,255,0.1); border: none; color: white; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; }
         .close-filter:hover { background: #ef4444; }
-        
-        .filter-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 18px;
-        }
+        .filter-body { flex: 1; overflow-y: auto; padding: 18px; }
         .filter-section { margin-bottom: 22px; }
         .filter-section-title {
-            color: #94a3b8;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
         }
         .filter-option {
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
-            padding: 8px 12px;
-            margin-bottom: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.15s;
+            background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; cursor: pointer;
+            display: flex; align-items: center; justify-content: space-between; transition: all 0.15s;
         }
         .filter-option:hover { background: rgba(59,130,246,0.2); border-color: #3b82f6; }
         .filter-option.active { background: #3b82f6; border-color: #3b82f6; }
         .filter-option-label { color: white; font-size: 13px; }
         .filter-option-count { color: #94a3b8; font-size: 11px; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 12px; }
         .filter-option.active .filter-option-count { background: rgba(255,255,255,0.2); color: white; }
-        
-        .filter-actions {
-            padding: 16px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            gap: 12px;
-        }
-        .filter-actions button {
-            flex: 1;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 13px;
-        }
+        .filter-actions { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 12px; }
+        .filter-actions button { flex: 1; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; }
         .btn-apply { background: #3b82f6; border: none; color: white; }
         .btn-reset { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; }
         
@@ -271,30 +132,11 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
         .leaflet-control-attribution { display: none !important; }
         .leaflet-top.leaflet-left { top: 70px; }
         .leaflet-control-zoom { margin-top: 10px; }
-
-        .custom-marker {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-.leaflet-marker-icon.custom-marker {
-    background: transparent !important;
-}
-
-.leaflet-div-icon {
-    background: transparent !important;
-    border: none !important;
-}
-
-/* Ensure markers are clean */
-.leaflet-marker-icon {
-    background: transparent !important;
-}
-
-.leaflet-marker-pane > * {
-    background: transparent !important;
-}
+        .custom-marker { background: transparent !important; border: none !important; box-shadow: none !important; }
+        .leaflet-marker-icon.custom-marker { background: transparent !important; }
+        .leaflet-div-icon { background: transparent !important; border: none !important; }
+        .leaflet-marker-icon { background: transparent !important; }
+        .leaflet-marker-pane > * { background: transparent !important; }
     </style>
 </head>
 <body class="bg-gray-900">
@@ -328,7 +170,7 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
             <!-- Legend -->
             <div class="legend">
                 <div class="legend-item"><div class="legend-color" style="background: #10b981;"></div><span>Active</span></div>
-                <div class="legend-item"><div class="legend-color" style="background: #8b5cf6;"></div><span>Stale (&gt;10min)</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #8b5cf6;"></div><span>Stale</span></div>
                 <div class="legend-item"><div class="legend-color" style="background: #f59e0b;"></div><span>Maintenance</span></div>
                 <div class="legend-item"><div class="legend-color" style="background: #6b7280;"></div><span>Inactive</span></div>
                 <div class="legend-item"><div class="legend-line"></div><span>Active Route</span></div>
@@ -337,10 +179,10 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
             <!-- Refresh Indicator -->
             <div class="refresh-indicator">
                 <i id="refreshIcon" class="ri-refresh-line"></i>
-                <span id="lastUpdate">Updating...</span>
+                <span id="lastUpdate">Loading...</span>
             </div>
             
-            <!-- Drawer Toggle -->
+            <!-- Drawer -->
             <div class="drawer-container">
                 <button class="drawer-toggle" onclick="toggleDrawer()">
                     <i class="ri-truck-line"></i>
@@ -350,7 +192,9 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
                         <h4><i class="ri-truck-line"></i> Fleet List <span id="drawerTruckCount" class="text-gray-400 text-xs">0 trucks</span></h4>
                         <i class="ri-arrow-up-s-line"></i>
                     </div>
-                    <div class="truck-list-items" id="truckList"></div>
+                    <div class="truck-list-items" id="truckList">
+                        <div class="truck-list-item" style="justify-content:center; color:#94a3b8; padding:20px;">Loading trucks...</div>
+                    </div>
                 </div>
             </div>
             
@@ -361,6 +205,7 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
                     <button class="close-filter" onclick="toggleFilter()"><i class="ri-close-line"></i></button>
                 </div>
                 <div class="filter-body">
+                    <!-- Status filters -->
                     <div class="filter-section">
                         <div class="filter-section-title"><i class="ri-truck-line"></i> Truck Status</div>
                         <div id="statusFilterGroup">
@@ -385,35 +230,23 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
                     <div class="filter-section">
                         <div class="filter-section-title"><i class="ri-map-pin-line"></i> Trip Status</div>
                         <div id="tripFilterGroup">
-                            <div class="filter-option active" data-trip="all" onclick="selectTrip('all')"><span class="filter-option-label">📋 All Trips</span></div>
+                            <div class="filter-option active" data-trip="all" onclick="selectTrip('all')"><span class="filter-option-label">📋 All</span></div>
                             <div class="filter-option" data-trip="ongoing" onclick="selectTrip('ongoing')"><span class="filter-option-label">🔄 Ongoing</span></div>
                             <div class="filter-option" data-trip="planned" onclick="selectTrip('planned')"><span class="filter-option-label">📅 Planned</span></div>
-                            <div class="filter-option" data-trip="completed" onclick="selectTrip('completed')"><span class="filter-option-label">✅ Completed</span></div>
                         </div>
                     </div>
                     <div class="filter-section">
-                        <div class="filter-section-title"><i class="ri-speed-line"></i> Speed Range</div>
+                        <div class="filter-section-title"><i class="ri-speed-line"></i> Speed</div>
                         <div id="speedFilterGroup">
-                            <div class="filter-option active" data-speed="all" onclick="selectSpeed('all')"><span class="filter-option-label">⚡ All Speeds</span></div>
-                            <div class="filter-option" data-speed="stationary" onclick="selectSpeed('stationary')"><span class="filter-option-label">🅿️ Stationary (0 km/h)</span></div>
-                            <div class="filter-option" data-speed="slow" onclick="selectSpeed('slow')"><span class="filter-option-label">🐢 Slow (1-30 km/h)</span></div>
-                            <div class="filter-option" data-speed="normal" onclick="selectSpeed('normal')"><span class="filter-option-label">🚚 Normal (31-70 km/h)</span></div>
-                            <div class="filter-option" data-speed="fast" onclick="selectSpeed('fast')"><span class="filter-option-label">💨 Fast (70+ km/h)</span></div>
-                        </div>
-                    </div>
-                    <div class="filter-section">
-                        <div class="filter-section-title"><i class="ri-time-line"></i> Last Update</div>
-                        <div id="updateFilterGroup">
-                            <div class="filter-option active" data-update="all" onclick="selectUpdate('all')"><span class="filter-option-label">🕐 Any Time</span></div>
-                            <div class="filter-option" data-update="fresh" onclick="selectUpdate('fresh')"><span class="filter-option-label">🟢 Fresh (&lt; 5 min)</span></div>
-                            <div class="filter-option" data-update="stale" onclick="selectUpdate('stale')"><span class="filter-option-label">🟡 Stale (5-30 min)</span></div>
-                            <div class="filter-option" data-update="old" onclick="selectUpdate('old')"><span class="filter-option-label">🔴 Old (&gt; 30 min)</span></div>
+                            <div class="filter-option active" data-speed="all" onclick="selectSpeed('all')"><span class="filter-option-label">⚡ All</span></div>
+                            <div class="filter-option" data-speed="stationary" onclick="selectSpeed('stationary')"><span class="filter-option-label">🅿️ 0 km/h</span></div>
+                            <div class="filter-option" data-speed="moving" onclick="selectSpeed('moving')"><span class="filter-option-label">🚚 Moving</span></div>
                         </div>
                     </div>
                 </div>
                 <div class="filter-actions">
-                    <button class="btn-apply" onclick="applyAdvancedFilters()">Apply Filters</button>
-                    <button class="btn-reset" onclick="resetAllFilters()">Reset All</button>
+                    <button class="btn-apply" onclick="applyAdvancedFilters()">Apply</button>
+                    <button class="btn-reset" onclick="resetAllFilters()">Reset</button>
                 </div>
             </div>
             
@@ -426,23 +259,27 @@ $role = $_SESSION['role'] ?? $_SESSION['user_role'] ?? '';
 <script>
 let map, markerCluster, markers = {}, routeLines = {}, updateInterval;
 let currentTrucks = [], filteredTrucks = [];
-let selectedStatus = 'all', selectedTrip = 'all', selectedSpeed = 'all', selectedUpdate = 'all';
+let selectedStatus = 'all', selectedTrip = 'all', selectedSpeed = 'all';
 
 function initMap() {
-    map = L.map('map').setView([31.7917, -7.0926], 6);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© CartoDB | FleetManager',
-        subdomains: 'abcd',
-        maxZoom: 19
-    }).addTo(map);
-    
-    L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
-    
-    markerCluster = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 50, disableClusteringAtZoom: 15 });
-    map.addLayer(markerCluster);
-    
-    loadTrucks();
-    updateInterval = setInterval(loadTrucks, 10000);
+    try {
+        map = L.map('map').setView([31.7917, -7.0926], 6);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© CartoDB | FleetManager',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+        
+        L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map);
+        
+        markerCluster = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 50, disableClusteringAtZoom: 15 });
+        map.addLayer(markerCluster);
+        
+        loadTrucks();
+        updateInterval = setInterval(loadTrucks, 10000);
+    } catch(e) {
+        console.error('Map init error:', e);
+    }
 }
 
 function toggleDrawer() { document.getElementById('fleetDrawer').classList.toggle('open'); }
@@ -466,26 +303,13 @@ function selectSpeed(speed) {
     document.querySelector(`#speedFilterGroup .filter-option[data-speed="${speed}"]`).classList.add('active');
 }
 
-function selectUpdate(update) {
-    selectedUpdate = update;
-    document.querySelectorAll('#updateFilterGroup .filter-option').forEach(opt => opt.classList.remove('active'));
-    document.querySelector(`#updateFilterGroup .filter-option[data-update="${update}"]`).classList.add('active');
-}
-
 function applyAdvancedFilters() {
     filteredTrucks = currentTrucks.filter(truck => {
         if(selectedStatus !== 'all' && truck.truck_status !== selectedStatus) return false;
         if(selectedTrip !== 'all' && truck.trip_status !== selectedTrip) return false;
         const speed = truck.speed_kmh || 0;
         if(selectedSpeed === 'stationary' && speed > 0) return false;
-        if(selectedSpeed === 'slow' && (speed < 1 || speed > 30)) return false;
-        if(selectedSpeed === 'normal' && (speed < 31 || speed > 70)) return false;
-        if(selectedSpeed === 'fast' && speed < 71) return false;
-        if(selectedUpdate !== 'all' && truck.location_status) {
-            if(selectedUpdate === 'fresh' && truck.location_status !== 'fresh') return false;
-            if(selectedUpdate === 'stale' && truck.location_status !== 'stale') return false;
-            if(selectedUpdate === 'old' && truck.location_status !== 'old') return false;
-        }
+        if(selectedSpeed === 'moving' && speed === 0) return false;
         return true;
     });
     updateMap(filteredTrucks);
@@ -495,15 +319,13 @@ function applyAdvancedFilters() {
 }
 
 function resetAllFilters() {
-    selectedStatus = 'all'; selectedTrip = 'all'; selectedSpeed = 'all'; selectedUpdate = 'all';
+    selectedStatus = 'all'; selectedTrip = 'all'; selectedSpeed = 'all';
     document.querySelectorAll('#statusFilterGroup .filter-option').forEach(opt => opt.classList.remove('active'));
     document.querySelector('#statusFilterGroup .filter-option[data-status="all"]').classList.add('active');
     document.querySelectorAll('#tripFilterGroup .filter-option').forEach(opt => opt.classList.remove('active'));
     document.querySelector('#tripFilterGroup .filter-option[data-trip="all"]').classList.add('active');
     document.querySelectorAll('#speedFilterGroup .filter-option').forEach(opt => opt.classList.remove('active'));
     document.querySelector('#speedFilterGroup .filter-option[data-speed="all"]').classList.add('active');
-    document.querySelectorAll('#updateFilterGroup .filter-option').forEach(opt => opt.classList.remove('active'));
-    document.querySelector('#updateFilterGroup .filter-option[data-update="all"]').classList.add('active');
     updateMap(currentTrucks);
     updateTruckList(currentTrucks);
     updateStats(currentTrucks);
@@ -512,7 +334,7 @@ function resetAllFilters() {
 
 async function loadTrucks() {
     try {
-        const response = await fetch(`../api/trucks_location.php`);
+        const response = await fetch('../api/trucks_location.php');
         const data = await response.json();
         if(data.success) {
             currentTrucks = data.trucks;
@@ -525,8 +347,14 @@ async function loadTrucks() {
             const icon = document.getElementById('refreshIcon');
             icon.classList.add('spinner');
             setTimeout(() => icon.classList.remove('spinner'), 300);
+        } else {
+            console.error('API error:', data);
+            document.getElementById('truckList').innerHTML = '<div class="truck-list-item" style="justify-content:center; color:#ef4444; padding:20px;">No data received</div>';
         }
-    } catch(error) { console.error('Error:', error); }
+    } catch(error) { 
+        console.error('Load error:', error);
+        document.getElementById('truckList').innerHTML = '<div class="truck-list-item" style="justify-content:center; color:#ef4444; padding:20px;">Error loading trucks</div>';
+    }
 }
 
 function updateFilterCounts(trucks) {
@@ -564,32 +392,10 @@ function updateMap(trucks) {
             else if(truck.location_status === 'stale') markerColor = '#8b5cf6';
             else { markerColor = '#10b981'; hasPulse = true; }
             
-            // Fixed marker icon - no white square
             const icon = L.divIcon({
                 className: 'custom-marker',
-                html: `<div style="
-                    background-color: ${markerColor}; 
-                    width: 14px; 
-                    height: 14px; 
-                    border-radius: 50%; 
-                    border: 2px solid white; 
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                    ${hasPulse ? 'animation: pulse 1.5s ease-in-out infinite;' : ''}
-                "></div>
-                ${truck.speed_kmh > 0 ? `<div style="
-                    position: absolute; 
-                    top: -18px; 
-                    left: 50%; 
-                    transform: translateX(-50%); 
-                    background: rgba(0,0,0,0.75); 
-                    padding: 2px 6px; 
-                    border-radius: 10px; 
-                    font-size: 9px; 
-                    color: white; 
-                    white-space: nowrap;
-                    font-weight: bold;
-                    pointer-events: none;
-                ">${Math.round(truck.speed_kmh)} km/h</div>` : ''}`,
+                html: `<div style="background-color: ${markerColor}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${hasPulse ? 'animation: pulse 1.5s ease-in-out infinite;' : ''}"></div>
+                ${truck.speed_kmh > 0 ? `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);padding:2px 6px;border-radius:10px;font-size:9px;color:white;white-space:nowrap;font-weight:bold;pointer-events:none;">${Math.round(truck.speed_kmh)} km/h</div>` : ''}`,
                 iconSize: [20, 20],
                 popupAnchor: [0, -10],
                 bgSize: [0, 0]
@@ -597,8 +403,8 @@ function updateMap(trucks) {
             
             const marker = L.marker([truck.latitude, truck.longitude], { icon: icon })
                 .bindPopup(`
-                    <div style="min-width: 200px;">
-                        <b style="font-size: 14px;">🚛 ${truck.plate_number}</b><br>
+                    <div style="min-width:200px;">
+                        <b style="font-size:14px;">🚛 ${truck.plate_number}</b><br>
                         👤 ${truck.driver_name || 'No driver'}<br>
                         ⚡ ${truck.speed_kmh || 0} km/h<br>
                         📊 ${truck.truck_status}<br>
@@ -609,31 +415,25 @@ function updateMap(trucks) {
             markerCluster.addLayer(marker);
             markers[truck.id] = marker;
             
-            // Draw route for ongoing trips
             if(truck.trip_status === 'ongoing' && truck.route && truck.route.start_lat && truck.route.end_lat) {
                 const points = [[truck.route.start_lat, truck.route.start_lng], [truck.route.end_lat, truck.route.end_lng]];
-                const line = L.polyline(points, { 
-                    color: '#3b82f6', 
-                    weight: 4, 
-                    opacity: 0.6, 
-                    dashArray: '8, 8',
-                    lineCap: 'round',
-                    lineJoin: 'round'
-                }).bindPopup(`<b>📍 Route</b><br>${truck.route.start_point || 'Start'} → ${truck.route.end_point || 'End'}`);
+                const line = L.polyline(points, { color: '#3b82f6', weight: 4, opacity: 0.6, dashArray: '8, 8', lineCap: 'round', lineJoin: 'round' })
+                    .bindPopup(`<b>📍 Route</b><br>${truck.route.start_point || 'Start'} → ${truck.route.end_point || 'End'}`);
                 line.addTo(map);
                 routeLines[truck.id] = line;
             }
         }
     });
-<<<<<<< HEAD
-    
-=======
->>>>>>> 8ce40042531d540cf13b00fdc4995bc5fdf2f1cb
 }
 
 function updateTruckList(trucks) {
     const container = document.getElementById('truckList');
     if(!container) return;
+    
+    if(trucks.length === 0) {
+        container.innerHTML = '<div class="truck-list-item" style="justify-content:center; color:#94a3b8; padding:20px;">No trucks found</div>';
+        return;
+    }
     
     container.innerHTML = trucks.map(t => `
         <div class="truck-list-item" onclick="centerOnTruck(${t.latitude || 0}, ${t.longitude || 0}, ${t.id})">
@@ -649,7 +449,6 @@ function updateTruckList(trucks) {
 
 function centerOnTruck(lat, lng, id) {
     if(lat && lng && lat !== 0) { map.setView([lat, lng], 14); if(markers[id]) markers[id].openPopup(); }
-    else { alert('No location data for this truck yet.'); }
 }
 
 document.addEventListener('DOMContentLoaded', initMap);

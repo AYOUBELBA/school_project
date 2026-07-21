@@ -20,7 +20,7 @@ $truckModel = new Truck($db);
 $driverModel = new Driver($db);
 
 // Function to check if driver is already assigned to another truck
-function isDriverAssignedToOtherTruck($db, $driver_id, $current_truck_id = null) {
+function isDriverAssignedToOtherTruck(PDO $db, int $driver_id, ?int $current_truck_id = null): array|bool {
     $sql = "SELECT id, plate_number FROM trucks WHERE current_driver_id = :driver_id";
     $stmt = $db->prepare($sql);
     $stmt->bindParam(':driver_id', $driver_id);
@@ -104,7 +104,7 @@ $availableDrivers = $driverModel->getAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trucks Management | Fleet System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
     <style>
         .status-badge { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
