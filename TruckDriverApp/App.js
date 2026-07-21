@@ -1,3 +1,4 @@
+// App.js
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -14,7 +15,7 @@ import MaintenanceScreen from './src/screens/MaintenanceScreen';
 import AddFuelScreen from './src/screens/AddFuelScreen';
 import IncidentScreen from './src/screens/IncidentScreen';
 import IntegratedMapScreen from './src/screens/IntegratedMapScreen';
-const API_URL = 'http://10.0.2.2/school_project';
+
 const Stack = createNativeStackNavigator();
 
 function LoadingScreen() {
@@ -31,25 +32,14 @@ export default function App() {
 
   useEffect(() => {
     checkLogin();
-    setupFullscreenMode(); // Call this on app start
+    setupFullscreenMode();
   }, []);
 
-  // Function to hide Android navigation bar
   const setupFullscreenMode = async () => {
     if (Platform.OS === 'android') {
       try {
-        // Hide the navigation bar completely
         await NavigationBar.setVisibilityAsync('hidden');
-        
-        // Make content appear behind the navigation bar area
-        await NavigationBar.setPositionAsync('absolute');
-        
-        // Allow swipe from edge to show bar temporarily
         await NavigationBar.setBehaviorAsync('overlay-swipe');
-        
-        // Optional: Change button color (if they appear)
-        await NavigationBar.setButtonStyleAsync('light');
-        
         console.log('Navigation bar hidden');
       } catch (error) {
         console.error('Error hiding navigation bar:', error);
@@ -68,6 +58,16 @@ export default function App() {
     }
   };
 
+  // Handle login success
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+  };
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -76,12 +76,16 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isLoggedIn ? (
+          // Auth Screens - only Login here
           <Stack.Screen name="Login">
-            {(props) => <LoginScreen {...props} onLogin={() => setIsLoggedIn(true)} />}
+            {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
           </Stack.Screen>
         ) : (
+          // App Screens - all authenticated screens
           <>
-            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="Dashboard">
+              {(props) => <DashboardScreen {...props} onLogout={handleLogout} />}
+            </Stack.Screen>
             <Stack.Screen name="Trips" component={TripsScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
@@ -89,7 +93,6 @@ export default function App() {
             <Stack.Screen name="AddFuel" component={AddFuelScreen} />
             <Stack.Screen name="Incident" component={IncidentScreen} />
             <Stack.Screen name="IntegratedMap" component={IntegratedMapScreen} />
-            <Stack.Screen name="Login" component={LoginScreen} />
           </>
         )}
       </Stack.Navigator>

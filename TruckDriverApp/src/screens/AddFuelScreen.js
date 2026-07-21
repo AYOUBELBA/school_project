@@ -1,3 +1,4 @@
+// src/screens/AddFuelScreen.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,27 +12,37 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DocumentUpload from '../components/DocumentUpload';
 
-const API_URL = 'http://192.168.100.116/school_project';
+const API_URL = 'http://192.168.100.116/SCHOOL_PROJECT';
 
 export default function AddFuelScreen() {
   const navigation = useNavigation();
   const [truckId, setTruckId] = useState(null);
+  const [driverId, setDriverId] = useState(null);
   const [liters, setLiters] = useState('');
   const [costPerLiter, setCostPerLiter] = useState('');
   const [totalCost, setTotalCost] = useState('');
   const [odometer, setOdometer] = useState('');
   const [fuelStation, setFuelStation] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [fuelDate, setFuelDate] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fuelRecordId, setFuelRecordId] = useState(null);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
 
   useEffect(() => {
     loadTruckInfo();
+    // Set today's date as default
+    const today = new Date().toISOString().split('T')[0];
+    setFuelDate(today);
   }, []);
 
   const loadTruckInfo = async () => {
     const truck = await AsyncStorage.getItem('truckId');
+    const driver = await AsyncStorage.getItem('driverId');
     setTruckId(truck);
+    setDriverId(driver);
   };
 
   const calculateTotal = (litersVal, costVal) => {
@@ -49,7 +60,6 @@ export default function AddFuelScreen() {
 
     setLoading(true);
     try {
-      const driverId = await AsyncStorage.getItem('driverId');
       const response = await fetch(`${API_URL}/api/add_fuel_record.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -61,13 +71,22 @@ export default function AddFuelScreen() {
           total_cost: parseFloat(totalCost),
           odometer_km: odometer ? parseInt(odometer) : null,
           fuel_station: fuelStation,
-          invoice_number: invoiceNumber
+          invoice_number: invoiceNumber,
+          fuel_date: fuelDate,
         })
       });
       const data = await response.json();
       if (data.success) {
-        Alert.alert('Success', 'Fuel record added successfully');
-        navigation.goBack();
+        setFuelRecordId(data.fuel_id);
+        setShowDocumentUpload(true);
+        Alert.alert(
+          'Success', 
+          'Fuel record added successfully!\n\nWould you like to upload the receipt?',
+          [
+            { text: 'Skip', onPress: () => navigation.goBack() },
+            { text: 'Upload Receipt', onPress: () => setShowDocumentUpload(true) }
+          ]
+        );
       } else {
         Alert.alert('Error', data.message);
       }
@@ -76,6 +95,11 @@ export default function AddFuelScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDocumentUploadComplete = (file) => {
+    Alert.alert('Success', 'Receipt uploaded successfully!');
+    navigation.goBack();
   };
 
   return (
@@ -89,6 +113,16 @@ export default function AddFuelScreen() {
       </View>
 
       <View style={styles.form}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Fuel Date *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="YYYY-MM-DD"
+            value={fuelDate}
+            onChangeText={setFuelDate}
+          />
+        </View>
+
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Liters *</Text>
           <TextInput
@@ -163,12 +197,31 @@ export default function AddFuelScreen() {
             {loading ? 'Saving...' : 'Save Fuel Record'}
           </Text>
         </TouchableOpacity>
+
+        {/* Document Upload Section - Shows after fuel record is saved */}
+        {showDocumentUpload && fuelRecordId && (
+          <View style={styles.uploadSection}>
+            <View style={styles.divider} />
+            <Text style={styles.uploadSectionTitle}>Upload Receipt</Text>
+            <Text style={styles.uploadSectionSubtext}>
+              Upload a photo or PDF of your fuel receipt
+            </Text>
+            <DocumentUpload
+              entityType="fuel"
+              entityId={fuelRecordId}
+              documentType="receipt"
+              buttonText="📷 Upload Receipt"
+              onUploadComplete={handleDocumentUploadComplete}
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>💡 Tip</Text>
         <Text style={styles.infoText}>
           Keep your fuel receipts for verification. The invoice number helps prevent duplicate entries.
+          You can upload the receipt after saving the record.
         </Text>
       </View>
     </ScrollView>
@@ -218,4 +271,23 @@ const styles = StyleSheet.create({
   },
   infoTitle: { fontSize: 14, fontWeight: 'bold', color: '#065f46', marginBottom: 8 },
   infoText: { fontSize: 12, color: '#065f46', lineHeight: 18 },
+  uploadSection: {
+    marginTop: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 20,
+  },
+  uploadSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  uploadSectionSubtext: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
 });

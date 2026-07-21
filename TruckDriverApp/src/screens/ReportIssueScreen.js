@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.100.116/school_project';
+const API_URL = 'http://192.168.100.116/SCHOOL_PROJECT';
 
 export default function ReportIssueScreen() {
   const navigation = useNavigation();
