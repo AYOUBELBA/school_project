@@ -1,6 +1,7 @@
 -- ============================================
 -- TRUCK FLEET MANAGEMENT SYSTEM - COMPLETE SCHEMA
 -- PostgreSQL
+-- Version: 2.0 (Updated July 2026)
 -- ============================================
 
 -- Enable UUID extension for secure tokens
@@ -22,8 +23,9 @@ CREATE TABLE companies (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE
 );
+
 -- ============================================
--- 2. USERS TABLE (Authentication & Roles)
+-- 2. USERS TABLE
 -- ============================================
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -37,6 +39,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 -- ============================================
 -- 3. DRIVERS TABLE
 -- ============================================
@@ -51,9 +54,13 @@ CREATE TABLE drivers (
     status VARCHAR(20) CHECK (status IN ('available', 'on_trip', 'off')) DEFAULT 'available',
     hire_date DATE,
     address TEXT,
+    is_in_truck BOOLEAN DEFAULT FALSE,
+    location_source VARCHAR(20) DEFAULT 'unknown',
+    last_status_update TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 -- ============================================
 -- 4. TRUCKS TABLE
 -- ============================================
@@ -76,6 +83,7 @@ CREATE TABLE trucks (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 -- ============================================
 -- 5. ROUTES TABLE
 -- ============================================
@@ -95,6 +103,7 @@ CREATE TABLE routes (
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 -- ============================================
 -- 6. TRIPS TABLE
 -- ============================================
@@ -113,11 +122,15 @@ CREATE TABLE trips (
     end_time TIMESTAMP,
     status VARCHAR(20) CHECK (status IN ('planned', 'ongoing', 'completed', 'cancelled')) DEFAULT 'planned',
     priority VARCHAR(20) CHECK (priority IN ('low', 'medium', 'high')) DEFAULT 'medium',
+    waypoints JSONB,
+    current_waypoint_index INTEGER DEFAULT 0,
+    navigation_started BOOLEAN DEFAULT FALSE,
     notes TEXT,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 -- ============================================
 -- 7. SHIPMENTS/CARGO TABLE
 -- ============================================
@@ -152,6 +165,7 @@ CREATE TABLE truck_locations (
     accuracy_m INTEGER,
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 -- ============================================
 -- 9. SCHEDULES (Future planned trips)
 -- ============================================
@@ -168,8 +182,9 @@ CREATE TABLE schedules (
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 -- ============================================
--- 10. TRUCK MAINTENANCE
+-- 10. TRUCK MAINTENANCE (Enhanced with workflow)
 -- ============================================
 CREATE TABLE truck_maintenance (
     id SERIAL PRIMARY KEY,
@@ -182,11 +197,18 @@ CREATE TABLE truck_maintenance (
     odometer_at_service INTEGER,
     performed_by VARCHAR(100),
     status VARCHAR(20) CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')) DEFAULT 'scheduled',
+    priority VARCHAR(20) CHECK (priority IN ('low', 'medium', 'high', 'critical')) DEFAULT 'medium',
+    assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    estimated_cost DECIMAL(10,2),
+    actual_cost DECIMAL(10,2),
+    completion_notes TEXT,
     notes TEXT,
     location_lat DECIMAL(10,8),
     location_lng DECIMAL(11,8),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 -- ============================================
 -- 11. INCIDENTS/ACCIDENTS
 -- ============================================
@@ -207,7 +229,7 @@ CREATE TABLE incidents (
 );
 
 -- ============================================
--- 12. FUEL RECORDS
+-- 12. FUEL RECORDS (With invoice upload)
 -- ============================================
 CREATE TABLE fuel_records (
     id SERIAL PRIMARY KEY,
@@ -219,8 +241,10 @@ CREATE TABLE fuel_records (
     fuel_station VARCHAR(100),
     fuel_date DATE NOT NULL,
     fuel_time TIME,
+    invoice_number VARCHAR(100) UNIQUE,
     receipt_image VARCHAR(255),
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -255,7 +279,7 @@ CREATE TABLE activity_logs (
 );
 
 -- ============================================
--- 15. INVITATIONS (Team member invites)
+-- 15. INVITATIONS
 -- ============================================
 CREATE TABLE invitations (
     id SERIAL PRIMARY KEY,
@@ -268,8 +292,39 @@ CREATE TABLE invitations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
+
 -- ============================================
--- INDEXES for Performance
+-- 16. PASSWORD RESETS
+-- ============================================
+CREATE TABLE password_resets (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- 17. DOCUMENTS (New!)
+-- ============================================
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id INTEGER NOT NULL,
+    document_type VARCHAR(50) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size INTEGER,
+    mime_type VARCHAR(100),
+    uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    description TEXT,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- INDEXES
 -- ============================================
 -- Users
 CREATE INDEX idx_users_email ON users(email);
@@ -304,6 +359,7 @@ CREATE INDEX idx_locations_truck_time ON truck_locations(truck_id, recorded_at);
 -- Maintenance
 CREATE INDEX idx_maintenance_truck ON truck_maintenance(truck_id);
 CREATE INDEX idx_maintenance_next_due ON truck_maintenance(next_due_date);
+CREATE INDEX idx_maintenance_status ON truck_maintenance(status);
 
 -- Notifications
 CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read);
@@ -317,8 +373,20 @@ CREATE INDEX idx_invitations_token ON invitations(token);
 CREATE INDEX idx_invitations_email ON invitations(email);
 CREATE INDEX idx_invitations_company ON invitations(company_id);
 
+-- Fuel Records
+CREATE INDEX idx_fuel_truck_date ON fuel_records(truck_id, fuel_date);
+CREATE INDEX idx_fuel_invoice ON fuel_records(invoice_number);
+
+-- Password Resets
+CREATE INDEX idx_password_resets_email ON password_resets(email);
+CREATE INDEX idx_password_resets_token ON password_resets(token);
+
+-- Documents
+CREATE INDEX idx_documents_entity ON documents(entity_type, entity_id);
+CREATE INDEX idx_documents_company ON documents(company_id);
+
 -- ============================================
--- TRIGGERS for updated_at
+-- TRIGGERS
 -- ============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -343,27 +411,12 @@ CREATE TRIGGER update_trucks_updated_at BEFORE UPDATE ON trucks
 CREATE TRIGGER update_trips_updated_at BEFORE UPDATE ON trips
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- ============================================
--- DEFAULT DATA
--- ============================================
-
--- Create default company (for system/super admin)
-INSERT INTO companies (name, subscription_plan, subscription_status, is_active) 
-VALUES ('System Company', 'extra', 'active', true);
-
--- Create super admin user (password: SuperAdmin123!)
--- You need to generate the hash using PHP: password_hash('SuperAdmin123!', PASSWORD_DEFAULT)
-INSERT INTO users (username, email, password_hash, role, company_id, is_active, created_at) 
-VALUES ('super_admin', 'super@admin.com', '$2y$10$YourHashHere', 'super_admin', 1, true, CURRENT_TIMESTAMP);
-
--- Update company owner
-UPDATE companies SET owner_id = 1 WHERE id = 1;
+CREATE TRIGGER update_maintenance_updated_at BEFORE UPDATE ON truck_maintenance
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
 -- HELPER FUNCTIONS
 -- ============================================
-
--- Function to check subscription limits
 CREATE OR REPLACE FUNCTION check_company_limit(p_company_id INTEGER, p_type VARCHAR)
 RETURNS TABLE(allowed BOOLEAN, message TEXT) AS $$
 DECLARE
@@ -371,17 +424,13 @@ DECLARE
     v_max_limit INTEGER;
     v_plan VARCHAR;
 BEGIN
-    -- Get company plan and limits
-    SELECT subscription_plan, max_drivers, max_trucks, max_managers 
-    INTO v_plan, v_max_limit, v_max_limit, v_max_limit
-    FROM companies WHERE id = p_company_id;
+    SELECT subscription_plan INTO v_plan FROM companies WHERE id = p_company_id;
     
     IF v_plan = 'extra' THEN
         RETURN QUERY SELECT TRUE, 'Unlimited'::TEXT;
         RETURN;
     END IF;
     
-    -- Count based on type
     IF p_type = 'driver' THEN
         SELECT COUNT(*) INTO v_current_count FROM drivers WHERE company_id = p_company_id;
         SELECT max_drivers INTO v_max_limit FROM companies WHERE id = p_company_id;
@@ -394,9 +443,27 @@ BEGIN
     END IF;
     
     IF v_current_count >= v_max_limit THEN
-        RETURN QUERY SELECT FALSE, format('You have reached your %s limit (%s). Please upgrade your plan.', p_type, v_max_limit);
+        RETURN QUERY SELECT FALSE, format('You have reached your %s limit (%s).', p_type, v_max_limit);
     ELSE
         RETURN QUERY SELECT TRUE, 'OK'::TEXT;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================
+-- DEFAULT DATA
+-- ============================================
+INSERT INTO companies (name, subscription_plan, subscription_status, is_active) 
+VALUES ('Default Company', 'extra', 'active', true);
+
+-- Super admin (password: SuperAdmin123!)
+INSERT INTO users (username, email, password_hash, role, company_id, is_active, created_at) 
+VALUES ('super_admin', 'super@admin.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'super_admin', 1, true, CURRENT_TIMESTAMP);
+
+UPDATE companies SET owner_id = 1 WHERE id = 1;
+
+-- ============================================
+-- VERIFICATION QUERY
+-- ============================================
+-- Run this to verify all tables were created:
+-- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;
