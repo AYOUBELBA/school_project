@@ -16,7 +16,7 @@ $error = '';
 
 // Handle settings update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Add your system settings logic here
+    "" your system settings logic here
     $success = "System settings updated successfully!";
 }
 ?>
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Settings | Fleet System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
 </head>
 <body>
