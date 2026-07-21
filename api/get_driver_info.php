@@ -38,6 +38,6 @@ $driver = $stmt->fetch(PDO::FETCH_ASSOC);
 echo json_encode([
     'success' => true,
     'driver' => $driver,
-    'current_trip' => null // Add trip query here
+    'current_trip' => null
 ]);
 ?>

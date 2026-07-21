@@ -1,36 +1,39 @@
 <?php
 class Shipment {
-    private $conn;
-    private $table = "shipments";
+    private PDO $conn;
+    private string $table = "shipments";
     
-    public function __construct($db) {
-    $this->conn = $db;
-    // Ensure company_id is in session
-    if(isset($_SESSION['user_id']) && !isset($_SESSION['company_id'])) {
-        // Try to fetch it
-        $sql = "SELECT company_id FROM users WHERE id = :user_id";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bindParam(':user_id', $_SESSION['user_id']);
-        $stmt->execute();
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        if($user) {
-            $_SESSION['company_id'] = $user['company_id'];
+    public function __construct(PDO $db) {
+            $this->conn = $db;
+        // Ensure company_id is in session
+        if(isset($_SESSION['user_id']) && !isset($_SESSION['company_id'])) {
+            // Try to fetch it
+            $sql = "SELECT company_id FROM users WHERE id = :user_id";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindParam(':user_id', $_SESSION['user_id']);
+            $stmt->execute();
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if($user) {
+                $_SESSION['company_id'] = $user['company_id'];
+            }
         }
     }
-}
     
-    public function getAll() {
+    public function getAll(): array {
+        $company_id = $_SESSION['company_id'] ?? 0;
         $query = "SELECT s.*, t.trip_number, tr.plate_number as truck_plate
-                  FROM " . $this->table . " s
-                  LEFT JOIN trips t ON s.trip_id = t.id
-                  LEFT JOIN trucks tr ON t.truck_id = tr.id
-                  ORDER BY s.created_at DESC";
+                FROM " . $this->table . " s
+                LEFT JOIN trips t ON s.trip_id = t.id
+                LEFT JOIN trucks tr ON t.truck_id = tr.id
+                WHERE s.company_id = :company_id
+                ORDER BY s.created_at DESC";
         $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':company_id', $company_id);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    public function getById($id) {
+    public function getById(int $id): ?array {
         $query = "SELECT * FROM " . $this->table . " WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
@@ -38,11 +41,13 @@ class Shipment {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
-    public function create($data) {
+    public function create(array $data): int|bool {
+        $company_id = $_SESSION['company_id'] ?? 0;
+        
         $query = "INSERT INTO " . $this->table . "
-                  (shipment_number, trip_id, description, weight_kg, quantity, dimensions, cargo_type, status)
-                  VALUES (:shipment_number, :trip_id, :description, :weight_kg, :quantity, :dimensions, :cargo_type, :status)
-                  RETURNING id";
+                (shipment_number, trip_id, description, weight_kg, quantity, dimensions, cargo_type, status, company_id)
+                VALUES (:shipment_number, :trip_id, :description, :weight_kg, :quantity, :dimensions, :cargo_type, :status, :company_id)
+                RETURNING id";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':shipment_number', $data['shipment_number']);
@@ -53,6 +58,7 @@ class Shipment {
         $stmt->bindParam(':dimensions', $data['dimensions']);
         $stmt->bindParam(':cargo_type', $data['cargo_type']);
         $stmt->bindParam(':status', $data['status']);
+        $stmt->bindParam(':company_id', $company_id);
         
         if($stmt->execute()) {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -61,7 +67,7 @@ class Shipment {
         return false;
     }
     
-    public function update($id, $data) {
+    public function update(int $id, array $data): bool {
         $query = "UPDATE " . $this->table . "
                   SET shipment_number = :shipment_number, trip_id = :trip_id, description = :description,
                       weight_kg = :weight_kg, quantity = :quantity, dimensions = :dimensions,
@@ -82,14 +88,14 @@ class Shipment {
         return $stmt->execute();
     }
     
-    public function delete($id) {
+    public function delete(int $id): bool {
         $query = "DELETE FROM " . $this->table . " WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         return $stmt->execute();
     }
     
-    public function generateShipmentNumber() {
+    public function generateShipmentNumber(): string {
         // Fixed PostgreSQL compatible version
         $query = "SELECT COALESCE(
                     (SELECT MAX(CAST(SUBSTRING(shipment_number FROM 5) AS INTEGER)) 
@@ -103,7 +109,7 @@ class Shipment {
         return 'SHP-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
     }
     
-    public function getTrips() {
+    public function getTrips(): array {
         $query = "SELECT id, trip_number FROM trips WHERE status IN ('planned', 'ongoing') ORDER BY created_at DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
