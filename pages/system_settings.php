@@ -16,7 +16,7 @@ $error = '';
 
 // Handle settings update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    "" your system settings logic here
+    // Add your system settings logic here
     $success = "System settings updated successfully!";
 }
 ?>

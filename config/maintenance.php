@@ -1,6 +1,6 @@
 <?php
 return array (
-  'enabled' => true,
+  'enabled' => false,
   'message' => 'System is currently under maintenance. Please check back later.',
   'allowed_ips' => 
   array (
@@ -12,7 +12,7 @@ return array (
     0 => 'super_admin',
     1 => 'owner',
   ),
-  'started_at' => '2026-07-21 18:10:07',
+  'started_at' => NULL,
   'estimated_end' => '2026-07-21T17:30',
 );
 ?>
