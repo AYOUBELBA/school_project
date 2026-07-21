@@ -31,6 +31,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <i class="ri-history-line text-xl"></i>
             <span>Activity Logs</span>
         </a>
+
+        <a href="system_settings.php" class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-800 transition <?php echo $current_page == 'system_settings.php' ? 'bg-gray-800' : ''; ?>">
+            <i class="ri-settings-4-line text-xl"></i>
+            <span>System Settings</span>
+        </a>
+
         <div class="border-t border-gray-800 my-4"></div>
         <a href="../dashboard.php" class="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-800 transition">
             <i class="ri-arrow-left-line text-xl"></i>
