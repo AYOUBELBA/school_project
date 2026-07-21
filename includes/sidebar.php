@@ -91,6 +91,17 @@ $username = $_SESSION['username'] ?? 'User';
             </a>
             <?php endif; ?>
             
+            <!-- Driver Performance - Manager and Owner -->
+            <a href="driver_performance.php" class="sidebar-item <?php echo $current_page == 'driver_performance.php' ? 'active' : ''; ?> flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700">
+                <i class="ri-star-line text-xl"></i>
+                <span class="font-medium">Driver Performance</span>
+            </a>
+            <!-- Documents - Manager and Owner -->
+            <a href="documents.php" class="sidebar-item <?php echo $current_page == 'documents.php' ? 'active' : ''; ?> flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700">
+                <i class="ri-file-line text-xl"></i>
+                <span class="font-medium">Documents</span>
+            </a>
+            
             <!-- Live Tracking - Everyone -->
             <a href="tracking.php" class="sidebar-item <?php echo $current_page == 'tracking.php' ? 'active' : ''; ?> flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700">
                 <i class="ri-map-pin-line text-xl"></i>
