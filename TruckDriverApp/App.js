@@ -5,9 +5,6 @@ import { View, ActivityIndicator, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as NavigationBar from 'expo-navigation-bar';
 
-<<<<<<< HEAD
-const API_URL = 'http://192.168.100.116/school_project';
-=======
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import TripsScreen from './src/screens/TripsScreen';
@@ -17,8 +14,7 @@ import MaintenanceScreen from './src/screens/MaintenanceScreen';
 import AddFuelScreen from './src/screens/AddFuelScreen';
 import IncidentScreen from './src/screens/IncidentScreen';
 import IntegratedMapScreen from './src/screens/IntegratedMapScreen';
->>>>>>> 8ce40042531d540cf13b00fdc4995bc5fdf2f1cb
-
+const API_URL = 'http://10.0.2.2/school_project';
 const Stack = createNativeStackNavigator();
 
 function LoadingScreen() {
