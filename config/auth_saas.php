@@ -4,15 +4,14 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once 'database.php';
-
 class Auth {
-    private $conn;
+    private \PDO $conn;
     
-    public function __construct($db) {
+    public function __construct(\PDO $db) {
         $this->conn = $db;
     }
     
-public function login($email, $password) {
+public function login(string $email, string $password): array|false { 
     $query = "SELECT u.*, c.id as company_id, c.name as company_name, c.subscription_status 
               FROM users u
               LEFT JOIN companies c ON u.company_id = c.id
