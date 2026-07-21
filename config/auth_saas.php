@@ -97,57 +97,75 @@ public function login(string $email, string $password): array|false {
     }
 }
     
-    public function registerWithInvite($token, $username, $email, $password) {
-        // Check if invitation exists and is valid
-        $inviteSql = "SELECT i.*, c.name as company_name 
-                      FROM invitations i
-                      JOIN companies c ON i.company_id = c.id
-                      WHERE i.token = :token AND i.is_used = false AND i.expires_at > CURRENT_TIMESTAMP";
-        $inviteStmt = $this->conn->prepare($inviteSql);
-        $inviteStmt->bindParam(':token', $token);
-        $inviteStmt->execute();
-        
-        if($inviteStmt->rowCount() === 0) {
-            return ['success' => false, 'message' => 'Invalid or expired invitation'];
-        }
-        
-        $invite = $inviteStmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Check email matches invitation
-        if($invite['email'] !== $email) {
-            return ['success' => false, 'message' => 'Email does not match invitation'];
-        }
-        
-        try {
-            $this->conn->beginTransaction();
-            
-            // Create user
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $userSql = "INSERT INTO users (username, email, password_hash, role, company_id, is_active, created_at) 
-                        VALUES (:username, :email, :password_hash, :role, :company_id, true, CURRENT_TIMESTAMP) 
-                        RETURNING id";
-            $userStmt = $this->conn->prepare($userSql);
-            $userStmt->bindParam(':username', $username);
-            $userStmt->bindParam(':email', $email);
-            $userStmt->bindParam(':password_hash', $hashed_password);
-            $userStmt->bindParam(':role', $invite['role']);
-            $userStmt->bindParam(':company_id', $invite['company_id']);
-            $userStmt->execute();
-            
-            // Mark invitation as used
-            $updateInvite = "UPDATE invitations SET is_used = true WHERE id = :id";
-            $updateStmt = $this->conn->prepare($updateInvite);
-            $updateStmt->bindParam(':id', $invite['id']);
-            $updateStmt->execute();
-            
-            $this->conn->commit();
-            
-            return ['success' => true, 'user_id' => $userStmt->fetch(PDO::FETCH_ASSOC)['id']];
-        } catch(PDOException $e) {
-            $this->conn->rollBack();
-            return ['success' => false, 'message' => $e->getMessage()];
-        }
+public function registerWithInvite($token, $username, $email, $password, $license_number = null, $license_expiry = null) {
+    // Check if invitation exists and is valid
+    $inviteSql = "SELECT i.*, c.name as company_name 
+                  FROM invitations i
+                  JOIN companies c ON i.company_id = c.id
+                  WHERE i.token = :token AND i.is_used = false AND i.expires_at > CURRENT_TIMESTAMP";
+    $inviteStmt = $this->conn->prepare($inviteSql);
+    $inviteStmt->bindParam(':token', $token);
+    $inviteStmt->execute();
+    
+    if($inviteStmt->rowCount() === 0) {
+        return ['success' => false, 'message' => 'Invalid or expired invitation'];
     }
+    
+    $invite = $inviteStmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Check email matches invitation
+    if($invite['email'] !== $email) {
+        return ['success' => false, 'message' => 'Email does not match invitation'];
+    }
+    
+    try {
+        $this->conn->beginTransaction();
+        
+        // Create user
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+        $userSql = "INSERT INTO users (username, email, password_hash, role, company_id, is_active, created_at) 
+                    VALUES (:username, :email, :password_hash, :role, :company_id, true, CURRENT_TIMESTAMP) 
+                    RETURNING id";
+        $userStmt = $this->conn->prepare($userSql);
+        $userStmt->bindParam(':username', $username);
+        $userStmt->bindParam(':email', $email);
+        $userStmt->bindParam(':password_hash', $hashed_password);
+        $userStmt->bindParam(':role', $invite['role']);
+        $userStmt->bindParam(':company_id', $invite['company_id']);
+        $userStmt->execute();
+        $userId = $userStmt->fetch(PDO::FETCH_ASSOC)['id'];
+        
+        // If role is driver, also create driver profile
+        if($invite['role'] === 'driver') {
+            // Set default values if license info not provided
+            $license_num = $license_number ?? 'PENDING_' . date('YmdHis');
+            $license_exp = $license_expiry ?? date('Y-m-d', strtotime('+1 year'));
+            
+            $driverSql = "INSERT INTO drivers (user_id, full_name, company_id, license_number, license_expiry, status, hire_date) 
+                          VALUES (:user_id, :full_name, :company_id, :license_number, :license_expiry, 'available', CURRENT_DATE)";
+            $driverStmt = $this->conn->prepare($driverSql);
+            $driverStmt->bindParam(':user_id', $userId);
+            $driverStmt->bindParam(':full_name', $username);
+            $driverStmt->bindParam(':company_id', $invite['company_id']);
+            $driverStmt->bindParam(':license_number', $license_num);
+            $driverStmt->bindParam(':license_expiry', $license_exp);
+            $driverStmt->execute();
+        }
+        
+        // Mark invitation as used
+        $updateInvite = "UPDATE invitations SET is_used = true WHERE id = :id";
+        $updateStmt = $this->conn->prepare($updateInvite);
+        $updateStmt->bindParam(':id', $invite['id']);
+        $updateStmt->execute();
+        
+        $this->conn->commit();
+        
+        return ['success' => true, 'user_id' => $userId];
+    } catch(PDOException $e) {
+        $this->conn->rollBack();
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
     
     public function createInvitation($company_id, $email, $role, $created_by) {
         // Check if user with this email already exists in company

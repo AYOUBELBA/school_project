@@ -258,7 +258,7 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                        <select name="role" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select name="role" class="w-full px-3 py-2 border rounded-lg">
                             <option value="manager">Manager - Full operational access</option>
                             <option value="driver">Driver - Limited access (mobile app only)</option>
                         </select>
