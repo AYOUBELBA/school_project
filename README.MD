@@ -67,5 +67,11 @@ Check logs and configuration if issues occur.
 ## 📞 Support
 Contact: ayoubelbadri26@gmail.com
 
+## 📄 License
+
+Copyright © 2026 [Ayoub El Badri](https://github.com/AYOUBELBA). All rights reserved.
+
+This project is proprietary software. Unauthorized copying, modification, distribution, or use of this code—via any medium—is strictly prohibited.
+
 ---
 Made By Ayoub El Badri
